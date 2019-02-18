@@ -109,3 +109,17 @@ def print_table(header, data,
     if latex:
         print('\\hline')
         print('\\end{tabular}')
+
+
+def describe(df):
+    """Describe a DataFrame and its columns"""
+
+    # Print number of rows and columns
+    print('Rows:    ', df.shape[0])
+    print('Columns: ', df.shape[1])
+    print('Memory usage: ', df.memory_usage().sum(), ' Bytes')
+
+    # TODO: for each col:
+    # dtype, num_null, 
+    # if numeric: min, mean, max, mode
+    # if <10 unique values, list them
