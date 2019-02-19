@@ -111,15 +111,49 @@ def print_table(header, data,
         print('\\end{tabular}')
 
 
-def describe(df):
+def describe_df(df):
     """Describe a DataFrame and its columns"""
 
-    # Print number of rows and columns
-    print('Rows:    ', df.shape[0])
-    print('Columns: ', df.shape[1])
-    print('Memory usage: ', df.memory_usage().sum(), ' Bytes')
+    # Print all unique values if less than this many unique values
+    max_unique = 10
 
-    # TODO: for each col:
-    # dtype, num_null, 
-    # if numeric: min, mean, max, mode
-    # if <10 unique values, list them
+    # Print number of rows and columns
+    print('Rows:   ', df.shape[0])
+    print('Columns:', df.shape[1])
+    print('Memory usage:', df.memory_usage().sum(), 'Bytes')
+
+    # Collect info about each column
+    cols = []
+    dtypes = []
+    nulls = []
+    mins = []
+    means = []
+    maxes = []
+    modes = []
+    u_strs = []
+    for col in df:
+        cols.append(col) 
+        dtypes.append(str(df[col].dtype))
+        nulls.append(df[col].isnull().sum())
+        mins.append(df[col].min())
+        if str(df[col].dtype) == 'object':
+            means.append(' ')
+        else:
+            means.append(df[col].mean())
+        maxes.append(df[col].max())
+        t_mode = df[col].mode()
+        if len(t_mode) == 0:
+            modes.append(' ')
+        else:
+            modes.append(t_mode[0])
+        n_unique = df[col].nunique()
+        if n_unique >= max_unique:
+            u_strs.append(str(n_unique)+' unique values')
+        else:
+            u_strs.append(str(df[col].unique()))
+
+    # Print the per-column info
+    print_table(
+        ['Column', 'Dtype', 'Nulls', 'Min', 'Mean', 'Max', 'Mode', 'Uniques'],
+        [cols, dtypes, nulls, mins, means, maxes, modes, u_strs]
+    )
