@@ -7,7 +7,8 @@ def print_table(header, data,
                 colsep='  ',
                 newline='',
                 latex=False,
-                maxrows=None):
+                maxrows=None,
+                sigfigs=5):
     """Pretty-print a table.
     
     Parameters
@@ -28,8 +29,16 @@ def print_table(header, data,
         Whether to print in LaTeX format.  Default = False.
     maxrows : int
         Maximum number of rows to print.  Default = None (print all rows)
+    sigfigs : int
+        Number of significant digits to show (for floats)
     """
     
+    def to_string(val):
+        if isinstance(val, float):
+            return ('%0.'+str(sigfigs)+'g') % val
+        else:
+            return str(val)
+
     # Check inputs
     if not isinstance(header, list):
         raise TypeError('header must be a list of str')
@@ -46,24 +55,28 @@ def print_table(header, data,
         raise ValueError('all entries in data must be same length')
     if align is not None:
         if not isinstance(align, list):
-            raise ValueError('align must be list of char')
+            raise TypeError('align must be list of char')
         if not all(isinstance(e, str) for e in align):
-            raise ValueError('align must be list of char')
+            raise TypeError('align must be list of char')
         if len(align) != Nc:
             raise ValueError('align must be same length as header')
     if not isinstance(colsep, str):
-        raise ValueError('colsep must be a str')
+        raise TypeError('colsep must be a str')
     if not isinstance(newline, str):
-        raise ValueError('newline must be a str')
+        raise TypeError('newline must be a str')
     if not isinstance(latex, bool):
-        raise ValueError('latex must be True or False')
+        raise TypeError('latex must be True or False')
     if maxrows is not None and not isinstance(maxrows, int):
-        raise ValueError('maxrows must be None or an int')
+        raise TypeError('maxrows must be None or an int')
+    if not isinstance(sigfigs, int):
+        raise TypeError('sigfigs must be an int')
+    if sigfigs < 1:
+        raise ValueError('sigfigs must be greater than 0')
 
     # Length for each column
     lens = Nc*[None]
     for i in range(Nc):
-        lens[i] = max([len(e) for e in [str(e2) for e2 in data[i]]])
+        lens[i] = max([len(e) for e in [to_string(e2) for e2 in data[i]]])
         lens[i] = max(lens[i], len(header[i]))
         
     # Alignment
@@ -103,7 +116,7 @@ def print_table(header, data,
     if maxrows is None:
         maxrows = len(data[0])
     for r in range(maxrows):
-        print(fmt_str.format(*[e[r] for e in data]))
+        print(fmt_str.format(*[to_string(e[r]) for e in data]))
 
     # Latex end
     if latex:
@@ -111,11 +124,18 @@ def print_table(header, data,
         print('\\end{tabular}')
 
 
-def describe_df(df):
-    """Describe a DataFrame and its columns"""
+def describe_df(df, max_unique=10, sigfigs=5):
+    """Describe a DataFrame and its columns.
 
-    # Print all unique values if less than this many unique values
-    max_unique = 10
+    Parameters
+    ----------
+    max_unique : int
+        Show up to this many of each column's unique values.  If there are more
+        than this many unique elements in a column, just print the number of
+        unique elements.
+    sigfigs : int
+        Number of significant digits to show (for float columns)
+    """
 
     # Print number of rows and columns
     print('Rows:   ', df.shape[0])
@@ -173,5 +193,6 @@ def describe_df(df):
     # Print the per-column info
     print_table(
         ['Column', 'Dtype', 'Nulls', 'Min', 'Mean', 'Max', 'Mode', 'Uniques'],
-        [cols, dtypes, nulls, mins, means, maxes, modes, u_strs]
+        [cols, dtypes, nulls, mins, means, maxes, modes, u_strs],
+        sigfigs=sigfigs
     )
