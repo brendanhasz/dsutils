@@ -132,28 +132,43 @@ def describe_df(df):
     modes = []
     u_strs = []
     for col in df:
-        cols.append(col) 
+
+        # Basic column info
+        cols.append(col)
         dtypes.append(str(df[col].dtype))
         nulls.append(df[col].isnull().sum())
-        mins.append(df[col].min())
+
+        # For other metrics, don't include nans
+        series = df.loc[df[col].notnull(), col]
+
+        # Min
+        mins.append(series.min())
+
+        # Mean
         if str(df[col].dtype) == 'object':
             means.append(' ')
         else:
-            means.append(df[col].mean())
-        maxes.append(df[col].max())
+            means.append(series.mean())
+
+        # Max
+        maxes.append(series.max())
+
+        # Mode
         if 'float' in str(df[col].dtype):
             modes.append(' ') #mode on a float col makes pandas choke...
         else:
-            t_mode = df[col].mode()
+            t_mode = series.mode()
             if len(t_mode) == 0:
                 modes.append(' ')
             else:
                 modes.append(t_mode[0])
-        n_unique = df[col].nunique()
+
+        # Number of unique and uniques
+        n_unique = series.nunique()
         if n_unique >= max_unique:
             u_strs.append(str(n_unique)+' unique values')
         else:
-            u_strs.append(str(df[col].unique()))
+            u_strs.append(str(series.unique()))
 
     # Print the per-column info
     print_table(
