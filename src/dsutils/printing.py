@@ -141,11 +141,14 @@ def describe_df(df):
         else:
             means.append(df[col].mean())
         maxes.append(df[col].max())
-        t_mode = df[col].mode()
-        if len(t_mode) == 0:
-            modes.append(' ')
+        if 'float' in str(df[col].dtype):
+            modes.append(' ') #mode on a float col makes pandas choke...
         else:
-            modes.append(t_mode[0])
+            t_mode = df[col].mode()
+            if len(t_mode) == 0:
+                modes.append(' ')
+            else:
+                modes.append(t_mode[0])
         n_unique = df[col].nunique()
         if n_unique >= max_unique:
             u_strs.append(str(n_unique)+' unique values')
