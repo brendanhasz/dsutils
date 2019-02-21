@@ -71,14 +71,20 @@ def categorical_to_int(df, cols=None):
 
         # Determine appropriate datatype
         max_val = max(maps[col].values())
-        if max_val < 256:
-            dtype = 'uint8'
-        elif max_val < 65536:
-            dtype = 'uint16'
-        elif max_val < 4294967296:
-            dtype = 'uint32'
+        if df[col].isnull().any(): #nulls, so have to use float!
+            if max_val < 8388608:
+                dtype = 'float32'
+            else:
+                dtype = 'float64'
         else:
-            dtype = 'uint64'
+            if max_val < 256:
+                dtype = 'uint8'
+            elif max_val < 65536:
+                dtype = 'uint16'
+            elif max_val < 4294967296:
+                dtype = 'uint32'
+            else:
+                dtype = 'uint64'
 
         # Map the column
         df[col] = df[col].map(maps[col]).astype(dtype)
