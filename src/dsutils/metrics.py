@@ -1,4 +1,8 @@
 """Metrics
+
+* :func:`.mutual_information`
+* :func:`.q_mut_info`
+
 """
 
 import numpy as np
@@ -8,6 +12,8 @@ from .transforms import quantile_transform
 
 def mutual_information(xi, yi, res=20):
     """Compute the mutual information between two vectors
+
+    TODO: support categorical inputs via cat_x and cat_y bool args
 
     Parameters
     ----------

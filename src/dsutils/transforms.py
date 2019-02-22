@@ -1,5 +1,7 @@
 """Transforms
 
+* :func:`.quantile_transform`
+
 """
 
 

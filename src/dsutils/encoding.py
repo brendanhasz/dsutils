@@ -1,12 +1,18 @@
 """Encoding
 
+* :func:`.q_mut_info`
+* :class:`.TargetEncoder`
+* :class:`.TargetEncoderCV`
+
 """
 
-
+import numpy as np
 import pandas as pd
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.model_selection import KFold
 
 
-def one_hot_encode(df, cols=None):
+def one_hot_encode(df, cols=None, reduce_df=False):
     """One-hot encode columns.
 
     Parameters
@@ -15,6 +21,11 @@ def one_hot_encode(df, cols=None):
         Dataframe from which to one-hot encode columns
     cols : list of str
         Columns in df to one-hot encode
+    reduce_df : bool
+        Whether to add N-1 one-hot columns for a column with N categories. 
+        E.g. for a column with categories A, B, and C:
+        When reduce_df is True, A=[1, 0], B=[0, 1], and C=[0, 0]
+        When reduce_df is False, A=[1, 0, 0], B=[0, 1, 0], and C=[0, 0, 1]
 
     Returns
     -------
@@ -24,8 +35,6 @@ def one_hot_encode(df, cols=None):
     # Do for all "object" columns if not specified
     if cols is None:
         cols = [col for col in df if str(df[col].dtype)=='object']
-    if len(cols) == 0:
-        return
 
     # Make list if not
     if isinstance(cols, str):
@@ -34,9 +43,17 @@ def one_hot_encode(df, cols=None):
     # One-hot encode each column
     for col in cols:
         uniques = df[col].unique()
-        for u_val in uniques:
-            new_col = col+'_'+str(u_val)
-            df[new_col] = (df[col] == u_val).astype('uint8')
+        if len(uniques) < 2:
+            print('Warning: column '+col+' has <2 unique values, removing it')
+        elif len(uniques) == 2: #only 2 unique categories, just add binary col
+            new_col = col+'_'+str(uniques[0])
+            df[new_col] = (df[col] == uniques[0]).astype('uint8')
+        else:
+            for u_val in uniques:
+                new_col = col+'_'+str(u_val)
+                df[new_col] = (df[col] == u_val).astype('uint8')
+            if reduce_df:
+                del df[new_col]
 
     # Delete original columns from dataframe
     for col in cols:
@@ -44,7 +61,7 @@ def one_hot_encode(df, cols=None):
 
 
 
-class TargetEncoder():
+class TargetEncoder(BaseEstimator, TransformerMixin):
     """Target encoder.
     
     Replaces categorical column(s) with the mean target value for
@@ -141,19 +158,22 @@ class TargetEncoderCV(TargetEncoder):
     Rule of thumb: either use in a pipeline, or call fit_transform()
     """
     
-    def __init__(self, n_splits=3, **te_kwargs):
+    def __init__(self, n_splits=3, shuffle=True, **te_kwargs):
         """Cross-validated target encoding for categorical features.
         
         Parameters
         ----------
         n_splits : int
             Number of cross-validation splits. Default = 3.
+        shuffle : bool
+            Whether to shuffle the data when splitting into folds.
         cols : list of str
             Columns to target encode.
         kwargs : other keyword arguments
             Other kwargs are passed to TargetEncoder
         """
         self.n_splits = n_splits
+        self.shuffle = shuffle
         self.te_kwargs = te_kwargs
         
 
@@ -175,7 +195,7 @@ class TargetEncoderCV(TargetEncoder):
         self._train_ix = []
         self._test_ix = []
         self._fit_tes = []
-        kf = KFold(n_splits=self.n_splits)
+        kf = KFold(n_splits=self.n_splits, shuffle=self.shuffle)
         for train_ix, test_ix in kf.split(X):
             self._train_ix.append(train_ix)
             self._test_ix.append(test_ix)

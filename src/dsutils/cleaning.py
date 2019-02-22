@@ -1,5 +1,8 @@
 """Data cleaning
 
+* :func:`.remove_noninformative_cols`
+* :func:`.categorical_to_int`
+
 """
 
 

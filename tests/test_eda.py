@@ -1,4 +1,4 @@
-"""Tests eda
+"""Tests eda module
 
 """
 

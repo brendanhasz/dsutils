@@ -1,5 +1,8 @@
 """Printing.
 
+* :func:`.print_table`
+* :func:`.describe_df`
+
 """
 
 def print_table(header, data, 

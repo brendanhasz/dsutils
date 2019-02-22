@@ -1,5 +1,7 @@
 """Exploratory data analysis
 
+* :func:`.countplot2d`
+
 """
 
 import numpy as np
