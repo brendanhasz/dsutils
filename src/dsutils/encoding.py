@@ -12,6 +12,41 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.model_selection import KFold
 
 
+def null_encode(df, cols=None):
+    """Add indicator columns for nulls.
+
+    Parameters
+    ----------
+    df : pandas DataFrame
+        Dataframe from which to one-hot encode columns
+    cols : list of str
+        Columns in df for which to add null indicator columns
+
+    Returns
+    -------
+        Nothing, modifies df in-place.
+    """
+
+    # Do for all columns if not specified
+    if cols is None:
+        cols = df.columns
+
+    # Make list if not
+    if isinstance(cols, str):
+        cols = [cols]
+
+    # Check columns are in df
+    for col in cols:
+        if col not in df:
+            raise ValueError('Column \''+col+'\' not in DataFrame')
+
+    # Add null indicator column for each column
+    for col in cols:
+        if df[col].isnull().sum() > 0:
+            df[col+'_isnull'] = df[col].isnull().astype('uint8')
+
+
+
 def one_hot_encode(df, cols=None, reduce_df=False):
     """One-hot encode columns.
 
@@ -39,6 +74,11 @@ def one_hot_encode(df, cols=None, reduce_df=False):
     # Make list if not
     if isinstance(cols, str):
         cols = [cols]
+
+    # Check columns are in df
+    for col in cols:
+        if col not in df:
+            raise ValueError('Column \''+col+'\' not in DataFrame')
 
     # One-hot encode each column
     for col in cols:
@@ -104,6 +144,11 @@ class TargetEncoder(BaseEstimator, TransformerMixin):
         # Encode all categorical cols by default
         if self.cols is None:
             self.cols = [col for col in X if str(X[col].dtype)=='object']
+
+        # Check columns are in X
+        for col in self.cols:
+            if col not in X:
+                raise ValueError('Column \''+col+'\' not in X')
 
         # Encode each element of each column
         self.maps = dict() #dict to store map for each column

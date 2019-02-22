@@ -6,9 +6,89 @@ import numpy as np
 import pandas as pd
 #import matplotlib.pyplot as plt
 
+from dsutils.encoding import null_encode
 from dsutils.encoding import one_hot_encode
 from dsutils.encoding import TargetEncoder
 from dsutils.encoding import TargetEncoderCV
+
+
+def test_null_encode():
+    """Tests encoding.null_encode"""
+
+    # Should not change df if no nulls
+    df = pd.DataFrame()
+    df['a'] = np.random.randn(10)
+    df['b'] = np.random.randn(10)
+    null_encode(df)
+    assert 'a' in df
+    assert 'b' in df
+    assert df.shape[0] == 10
+    assert df.shape[1] == 2
+
+    # Should add one col for col in cols
+    df = pd.DataFrame()
+    df['a'] = np.random.randn(10)
+    df['b'] = np.random.randn(10)
+    df.loc[2, 'a'] = np.nan
+    null_encode(df, cols=['a'])
+    assert 'a' in df
+    assert 'b' in df
+    assert 'a_isnull' in df
+    assert df.shape[0] == 10
+    assert df.shape[1] == 3
+
+    # Should do all cols if none specified
+    df = pd.DataFrame()
+    df['a'] = np.random.randn(10)
+    df['b'] = np.random.randn(10)
+    df['c'] = np.random.randn(10)
+    df.loc[2, 'a'] = np.nan
+    df.loc[5, 'b'] = np.nan
+    null_encode(df)
+    assert 'a' in df
+    assert 'b' in df
+    assert 'c' in df
+    assert 'a_isnull' in df
+    assert 'b_isnull' in df
+    assert 'c_isnull' not in df
+    assert df.shape[0] == 10
+    assert df.shape[1] == 5
+
+    # Should do only cols specified
+    df = pd.DataFrame()
+    df['a'] = np.random.randn(10)
+    df['b'] = np.random.randn(10)
+    df['c'] = np.random.randn(10)
+    df.loc[2, 'a'] = np.nan
+    df.loc[5, 'b'] = np.nan
+    df.loc[6, 'c'] = np.nan
+    null_encode(df, cols=['a', 'b'])
+    assert 'a' in df
+    assert 'b' in df
+    assert 'c' in df
+    assert 'a_isnull' in df
+    assert 'b_isnull' in df
+    assert 'c_isnull' not in df
+    assert df.shape[0] == 10
+    assert df.shape[1] == 5
+
+    # Should work the same way if passed a string
+    df = pd.DataFrame()
+    df['a'] = np.random.randn(10)
+    df['b'] = np.random.randn(10)
+    df['c'] = np.random.randn(10)
+    df.loc[2, 'a'] = np.nan
+    df.loc[5, 'b'] = np.nan
+    df.loc[6, 'c'] = np.nan
+    null_encode(df, cols='a')
+    assert 'a' in df
+    assert 'b' in df
+    assert 'c' in df
+    assert 'a_isnull' in df
+    assert 'b_isnull' not in df
+    assert 'c_isnull' not in df
+    assert df.shape[0] == 10
+    assert df.shape[1] == 4
 
 
 def test_one_hot_encode():
