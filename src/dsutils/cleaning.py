@@ -6,7 +6,7 @@
 """
 
 
-
+import numpy as np
 import pandas as pd
 from hashlib import sha256
 
@@ -27,6 +27,13 @@ def remove_duplicate_cols(df):
     -------
         Nothing, deletes the columns in-place.
     """
+
+    # Perform on each element if passed list
+    if isinstance(df, list):
+        for i in range(len(df)):
+            print('DataFrame '+str(i))
+            remove_duplicate_cols(df[i])
+        return
 
     # Hash columns
     hashes = dict()
@@ -55,10 +62,10 @@ def remove_duplicate_cols(df):
             
     # Remove duplicate columns
     for iM in range(len(dup_list)):
-        o_col = dup_list[-1] #original column
+        o_col = dup_list[iM][-1] #original column
         for iD in range(len(dup_list[iM])-1):
             t_dup = dup_list[iM][iD]
-            print('Removing \''+t_dup+'\' (duplicate of \''+o_col'\')')
+            print('Removing \''+t_dup+'\' (duplicate of \''+o_col+'\')')
             df.drop(columns=t_dup, inplace=True)
 
 
@@ -85,6 +92,7 @@ def remove_noninformative_cols(df):
         for i in range(len(df)):
             print('DataFrame '+str(i))
             remove_noninformative_cols(df[i])
+        return
 
     # Remove non-informative columns
     for col in df:
@@ -113,8 +121,6 @@ def categorical_to_int(df, cols=None):
     # Do for all "object" columns if not specified
     if cols is None:
         cols = [col for col in df if str(df[col].dtype)=='object']
-    if len(cols) == 0:
-        return
 
     # Make list if not
     if isinstance(cols, str):
