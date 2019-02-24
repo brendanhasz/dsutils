@@ -107,8 +107,7 @@ class TargetEncoder(BaseEstimator, TransformerMixin):
     Replaces categorical column(s) with the mean target value for
     each category.
 
-    NOTE: this WILL work if you transform() on a different dataset than you
-    fit() on.
+
     """
     
     def __init__(self, cols=None):
@@ -117,7 +116,8 @@ class TargetEncoder(BaseEstimator, TransformerMixin):
         Parameters
         ----------
         cols : list of str
-            Columns to target encode.
+            Columns to target encode.  Default is to target-encode all 
+            categorical columns in the DataFrame.
         """
         if isinstance(cols, str):
             self.cols = [cols]
@@ -125,7 +125,7 @@ class TargetEncoder(BaseEstimator, TransformerMixin):
             self.cols = cols
         
         
-    def fit(self, X, y, **kwargs):
+    def fit(self, X, y):
         """Fit target encoder to X and y
         
         Parameters
@@ -162,7 +162,7 @@ class TargetEncoder(BaseEstimator, TransformerMixin):
         return self
 
         
-    def transform(self, X, y=None, **kwargs):
+    def transform(self, X, y=None):
         """Perform the target encoding transformation.
         
         Parameters
@@ -184,26 +184,34 @@ class TargetEncoder(BaseEstimator, TransformerMixin):
         return Xo
             
             
-    def fit_transform(self, X, y=None, **fit_kwargs):
+    def fit_transform(self, X, y=None):
         """Fit and transform the data via target encoding.
         
-        Note that you MUST pass y!
+        Parameters
+        ----------
+        X : pandas DataFrame, shape [n_samples, n_columns]
+            DataFrame containing columns to encode
+        y : pandas Series, shape = [n_samples]
+            Target values (required!).
+        
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
         """
-        return self.fit(X, y, **fit_kwargs).transform(X, y)
+        return self.fit(X, y).transform(X, y)
 
 
 
 class TargetEncoderCV(TargetEncoder):
-    """Cross-validated target encoder
-    
-    NOTE: this will NOT work when you transform() on different data than the
-    data you fit().
-    I.e., if you call TargetEncoderCV.fit() on one dataset, you cannot
-    call TargetEncoderCV.transform() on a different dataset.
-    Rule of thumb: either use in a pipeline, or call fit_transform()
+    """Cross-validated target encoder.
+
+    Note
+    ----
+    You must call transform() on the same dataset to which you fit().
     """
     
-    def __init__(self, n_splits=3, shuffle=True, **te_kwargs):
+    def __init__(self, n_splits=3, shuffle=True, cols=None):
         """Cross-validated target encoding for categorical features.
         
         Parameters
@@ -214,15 +222,13 @@ class TargetEncoderCV(TargetEncoder):
             Whether to shuffle the data when splitting into folds.
         cols : list of str
             Columns to target encode.
-        kwargs : other keyword arguments
-            Other kwargs are passed to TargetEncoder
         """
         self.n_splits = n_splits
         self.shuffle = shuffle
-        self.te_kwargs = te_kwargs
+        self.cols = cols
         
 
-    def fit(self, X, y, **kwargs):
+    def fit(self, X, y):
         """Fit target encoder to X and y
         
         Parameters
@@ -244,34 +250,54 @@ class TargetEncoderCV(TargetEncoder):
         for train_ix, test_ix in kf.split(X):
             self._train_ix.append(train_ix)
             self._test_ix.append(test_ix)
-            te = TargetEncoder(**self.te_kwargs)
+            te = TargetEncoder(cols=self.cols)
             if isinstance(X, pd.DataFrame):
-                self._fit_tes.append(te.fit(X.loc[train_ix,:], y[train_ix], **kwargs))
+                self._fit_tes.append(te.fit(X.loc[train_ix,:], y[train_ix]))
             elif isinstance(X, np.ndarray):
-                self._fit_tes.append(te.fit(X[train_ix,:], y[train_ix], **kwargs))
+                self._fit_tes.append(te.fit(X[train_ix,:], y[train_ix]))
             else:
                 raise TypeError('X must be DataFrame or ndarray')
         return self
 
     
-    def transform(self, X, y=None, **kwargs):
+    def transform(self, X, y=None):
         """Perform the target encoding transformation.
+
+        Parameters
+        ----------
+        X : pandas DataFrame, shape [n_samples, n_columns]
+            DataFrame containing columns to encode
+
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
         """
         Xo = X.copy()
         for ix in range(len(self._test_ix)):
             test_ix = self._test_ix[ix]
             if isinstance(X, pd.DataFrame):
-                Xo.loc[test_ix,:] = self._fit_tes[ix].transform(X.loc[test_ix,:], **kwargs)
+                Xo.loc[test_ix,:] = self._fit_tes[ix].transform(X.loc[test_ix,:])
             elif isinstance(X, np.ndarray):
-                Xo[test_ix,:] = self._fit_tes[ix].transform(X[test_ix,:], **kwargs)
+                Xo[test_ix,:] = self._fit_tes[ix].transform(X[test_ix,:])
             else:
                 raise TypeError('X must be DataFrame or ndarray')
         return Xo
 
             
-    def fit_transform(self, X, y=None, **fit_kwargs):
+    def fit_transform(self, X, y=None):
         """Fit and transform the data via target encoding.
         
-        Note that you MUST pass y!
+        Parameters
+        ----------
+        X : pandas DataFrame, shape [n_samples, n_columns]
+            DataFrame containing columns to encode
+        y : pandas Series, shape = [n_samples]
+            Target values (required!).
+
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
         """
-        return self.fit(X, y, **fit_kwargs).transform(X, y)
+        return self.fit(X, y).transform(X, y)
