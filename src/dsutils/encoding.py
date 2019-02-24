@@ -193,7 +193,7 @@ class TargetEncoder(BaseEstimator, TransformerMixin):
             DataFrame containing columns to encode
         y : pandas Series, shape = [n_samples]
             Target values (required!).
-        
+
         Returns
         -------
         pandas DataFrame
@@ -252,7 +252,8 @@ class TargetEncoderCV(TargetEncoder):
             self._test_ix.append(test_ix)
             te = TargetEncoder(cols=self.cols)
             if isinstance(X, pd.DataFrame):
-                self._fit_tes.append(te.fit(X.loc[train_ix,:], y[train_ix]))
+                self._fit_tes.append(te.fit(X.iloc[train_ix,:],
+                                            y.iloc[train_ix]))
             elif isinstance(X, np.ndarray):
                 self._fit_tes.append(te.fit(X[train_ix,:], y[train_ix]))
             else:
@@ -277,7 +278,7 @@ class TargetEncoderCV(TargetEncoder):
         for ix in range(len(self._test_ix)):
             test_ix = self._test_ix[ix]
             if isinstance(X, pd.DataFrame):
-                Xo.loc[test_ix,:] = self._fit_tes[ix].transform(X.loc[test_ix,:])
+                Xo.iloc[test_ix,:] = self._fit_tes[ix].transform(X.iloc[test_ix,:])
             elif isinstance(X, np.ndarray):
                 Xo[test_ix,:] = self._fit_tes[ix].transform(X[test_ix,:])
             else:

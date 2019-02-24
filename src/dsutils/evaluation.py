@@ -76,13 +76,15 @@ def permutation_importance(X, y, estimator, metric):
     base_score = metric_func(y, estimator.predict(X))
 
     # Permute each column and compute drop in metric
+    Xv = X.values
+    yv = y.values
     importances = pd.DataFrame(np.zeros((1,X.shape[1])), columns=X.columns)
-    for iC in X.columns:
-        tC = X[iC].copy()
-        X[iC] = X[iC].sample(frac=1, replace=True).values
-        shuff_score = metric_func(y, estimator.predict(X))
-        importances.loc[0,iC] = base_score - shuff_score
-        X[iC] = tC
+    for iC in range(X.shape[1]):
+        tC = np.copy(Xv[:,iC])
+        np.random.shuffle(Xv[:,iC])
+        shuff_score = metric_func(yv, estimator.predict(Xv))
+        importances.loc[0,X.columns[iC]] = base_score - shuff_score
+        Xv[:,iC] = tC
 
     # Return df with the feature importances
     return importances
@@ -148,8 +150,8 @@ def permutation_importance_cv(X, y, estimator, metric,
     iF = 0
     for train_ix, test_ix in kf.split(X):
         t_est = clone(estimator)
-        t_est.fit(X.loc[train_ix,:], y[train_ix])
-        t_imp = permutation_importance(X.loc[test_ix,:], y[test_ix], 
+        t_est.fit(X.iloc[train_ix,:], y.iloc[train_ix])
+        t_imp = permutation_importance(X.iloc[test_ix,:], y.iloc[test_ix], 
                                        t_est, metric)
         importances.loc[iF,:] = t_imp.loc[0,:]
         iF += 1

@@ -17,7 +17,7 @@ from dsutils.evaluation import permutation_importance_cv
 from dsutils.evaluation import plot_permutation_importance
 
 
-def test_permutation_importance_regression():
+def test_permutation_importance_regression(plot):
     """Tests encoding.permutation_importance w/ regression problems"""
 
     # Make dummy regression dataset
@@ -45,6 +45,11 @@ def test_permutation_importance_regression():
 
     # Permutation importance w/ R^2
     imp_df = permutation_importance(X_test, y_test, reg_pipe, 'r2')
+
+    if plot:
+        plot_permutation_importance(imp_df)
+        plt.title('a and b should be most important')
+        plt.show()
 
     # Permutation importance w/ mean squared error
     imp_df = permutation_importance(X_test, y_test, reg_pipe, 'mse')
