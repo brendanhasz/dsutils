@@ -243,6 +243,33 @@ class TargetEncoderCV(TargetEncoder):
         self : encoder
             Returns self.
         """
+        self._target_encoder = TargetEncoder(cols=self.cols)
+        self._target_encoder.fit(X, y)
+        return self
+
+    
+    def transform(self, X, y=None):
+        """Perform the target encoding transformation.
+
+        Uses cross-validated target encoding for the training fold, and uses
+        normal target encoding for the test fold.
+
+        Parameters
+        ----------
+        X : pandas DataFrame, shape [n_samples, n_columns]
+            DataFrame containing columns to encode
+
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
+        """
+
+        # Use target encoding from fit() if this is test data
+        if y is None:
+            return self._target_encoder.transform(X)
+
+        # Compute means for each fold
         self._train_ix = []
         self._test_ix = []
         self._fit_tes = []
@@ -258,22 +285,8 @@ class TargetEncoderCV(TargetEncoder):
                 self._fit_tes.append(te.fit(X[train_ix,:], y[train_ix]))
             else:
                 raise TypeError('X must be DataFrame or ndarray')
-        return self
 
-    
-    def transform(self, X, y=None):
-        """Perform the target encoding transformation.
-
-        Parameters
-        ----------
-        X : pandas DataFrame, shape [n_samples, n_columns]
-            DataFrame containing columns to encode
-
-        Returns
-        -------
-        pandas DataFrame
-            Input DataFrame with transformed columns
-        """
+        # Apply means across folds
         Xo = X.copy()
         for ix in range(len(self._test_ix)):
             test_ix = self._test_ix[ix]
