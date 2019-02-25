@@ -6,6 +6,7 @@
 """
 
 import numpy as np
+import pandas as pd
 
 from .transforms import quantile_transform
 
@@ -36,6 +37,7 @@ def mutual_information(xi, yi, res=20):
     return np.nansum(N * np.log(N / Ni))
     
 
+
 def q_mut_info(x, y):
     """Compute the mutual information between two quantile-transformed vectors
 
@@ -47,3 +49,52 @@ def q_mut_info(x, y):
     """
     return mutual_information(quantile_transform(x),
                               quantile_transform(y))
+
+
+
+
+def columnwise_mut_info(y, df, res=20, q_transform=True):
+    """Print the mutual information between target and other cols.
+
+    Parameters
+    ----------
+    y : str
+        Column in df to use as the target
+    df : pandas DataFrame
+        DataFrame with the values
+    q_transform : bool
+        Whether to quantile-transform values before computing mut info
+
+    Returns
+    -------
+    pandas DataFrame
+        Prints the mutual information and returns a dataframe of size
+        (Ncols,2).
+    """
+
+    # Check inputs 
+    if not isinstance(y, str):
+        raise TypeError('y must be a string with the column to use as target')
+    if not isinstance(y, str):
+        raise TypeError('y must be a string with the column to use as target')
+
+    # Compute the mutual info for each column
+    mis = []
+    cols = []
+    for col in df:
+        if col == y: continue 
+        if q_transform:
+            mi = q_mut_info(df[y], df[col])
+        else:
+            mi = mutual_information(df[y], df[col])
+        cols.append(col)
+        mis.append(mi)
+
+    # Print the mutual information for each column
+    print_table(['Column', 'Mutual Information'], [cols, mis])
+
+    # Return dataframe w/ the values
+    mi_df = pd.DataFrame()
+    mi_df['Column'] = cols
+    mi_df['Mutual Information'] = mis
+    return mi_df
