@@ -175,3 +175,8 @@ def plot_permutation_importance(importances):
            .reset_index()
            .sort_values('Importance', ascending=False))
     sns.barplot(x='Importance', y='Feature', data=df, order=dfg['Feature'])
+
+
+# TODO: binary_feature_search, which does a binary search using permutation
+# based feature importances to find the set of features which give the best
+# results (as determined by the passed metric)
