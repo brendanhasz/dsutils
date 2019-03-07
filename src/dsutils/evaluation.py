@@ -189,8 +189,8 @@ def plot_permutation_importance(importances):
 def optimize_cv(X, y, model, bounds,
                 n_splits=3,
                 max_time=None,
-                max_evals=20,
-                optimizer='bayesian',
+                max_evals=50,
+                n_random=5,
                 n_jobs=1,
                 metric='mse'):
     """Optimize model parameters using cross-fold validation.
@@ -216,10 +216,9 @@ def optimize_cv(X, y, model, bounds,
         Give up after this many seconds
     max_evals : int
         Max number of cross-validation evaluations to perform.
-    optimizer : str
-        Which method to use for optimization.  'random' to make random 
-        parameter choices and take the best.  'bayesian' to use Gaussian
-        process optimization.
+    n_random : int
+        Number of evaluations to use random parameter combinations before
+        switching to Bayesian global optimization.
     n_jobs : int
         Number of parallel jobs to run (for cross-validation).    
     metric : str or sklearn scorer
@@ -289,14 +288,19 @@ def optimize_cv(X, y, model, bounds,
         raise TypeError('max_evals must be an int')
     if max_evals < 1:
         raise ValueError('max_evals must be positive')
-    if not isinstance(optimizer, str):
-        raise TypeError('optimizer must be a string')
-    if optimizer not in ['random', 'bayesian']:
-        raise ValueError('optimizer must be \'random\' or \'bayesian\'')
+    if not isinstance(n_random, int):
+        raise TypeError('n_random must be an int')
+    if n_random < 0:
+        raise ValueError('n_random must be non-negative')
     if not isinstance(n_jobs, int):
         raise TypeError('n_jobs must be an int')
     if n_jobs < 1:
         raise ValueError('n_jobs must be positive')
+
+    # Import MOE
+    from moe.easy_interface.experiment import Experiment
+    from moe.easy_interface.simple_endpoint import gp_next_points
+    from moe.optimal_learning.python.data_containers import SamplePoint
 
     # Create scorer
     if metric == 'r2':
@@ -320,12 +324,6 @@ def optimize_cv(X, y, model, bounds,
     else:
         flip = -1
 
-    # Create Gaussian process model
-    if optimizer == 'bayesian':
-        gp = GaussianProcessRegressor(kernel=RationalQuadratic(),
-                                      n_restarts_optimizer=5,
-                                      normalize_y=True)
-
     # Initialize arrays to store evaluated parameters
     scores = []
     params = dict()
@@ -335,6 +333,7 @@ def optimize_cv(X, y, model, bounds,
 
     # Search for optimal parameters
     start_time = time.time()
+    moe_exp = Experiment([bounds[p][:2] for p in bounds])
     for i in range(max_evals):
 
         # Give up if we've spent too much time
@@ -342,14 +341,17 @@ def optimize_cv(X, y, model, bounds,
             break
 
         # Randomly choose next parameter values to try
-        if optimizer == 'random':
+        if i < n_random:
             for param, bound in bounds.items():
                 new_params[param] = np.random.uniform(bound[0], bound[1])
 
         # Bayesian optimizer
         else:
-            pass
-            # TODO
+            next_point_to_sample = gp_next_points(moe_exp)[0]
+            for param, bound in bounds.items():
+                new_params[param] = np.random.uniform(bound[0], bound[1])
+            # TODO: uhh should use list of param names and bounds...
+            # so ordering doesn't get messed up w/ dict
 
         # Convert integer params to integer
         for param, bound in bounds.items():
@@ -366,19 +368,20 @@ def optimize_cv(X, y, model, bounds,
         # Compute and store cross-validated metric
         t_score = cross_val_score(model, X, y, cv=n_splits, 
                                   scoring=scorer, n_jobs=n_jobs)
+
+        # Store parameters and scores
         scores.append(t_score.mean())
+        moe_exp.historical_data.append_sample_points([
+            SamplePoint(next_point_to_sample,
+                        scores.mean(),
+                        scores.var())
+        ])
 
-    # Get best evaluated parameters if using random optimization
-    if optimizer == 'random':
-        opt_params = dict()
-        ix = scores.index(min(flip*e for e in scores)) #index of best score
-        for param, vals in params.items():
-            opt_params[param] = vals[ix]
+    # Get expected best point
+    # TODO
 
-    # Use Gaussian process to find max value if using Bayesian optimization
-    else:
-        pass
-        # TODO
+    # TODO: use MOE?
+    # add functionality for seeing the GP plot 
 
     # Return optimal parameters, all evaluated parameters, and scores
     return opt_params, params, scores
