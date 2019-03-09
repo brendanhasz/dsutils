@@ -198,7 +198,7 @@ def test_optimize_cv_random_1(plot):
                                              n_splits=3,
                                              max_time=None,
                                              max_evals=10,
-                                             optimizer='random',
+                                             n_random=10,
                                              metric='mse')
 
     # Plot parameters and their scores
@@ -213,7 +213,7 @@ def test_optimize_cv_random_1(plot):
                                              n_splits=3,
                                              max_time=None,
                                              max_evals=10,
-                                             optimizer='random',
+                                             n_random=10,
                                              metric='mse',
                                              n_jobs=2)
 
@@ -223,7 +223,7 @@ def test_optimize_cv_random_1(plot):
                                              n_splits=3,
                                              max_time=0.2,
                                              max_evals=int(1e12),
-                                             optimizer='random',
+                                             n_random=int(1e12),
                                              metric='mse')
     assert time.time()-start_time < 1.0
 
@@ -266,7 +266,7 @@ def test_optimize_cv_random_2(plot):
                                              n_splits=3,
                                              max_time=None,
                                              max_evals=10,
-                                             optimizer='random',
+                                             n_random=10,
                                              metric='mse')
 
     # Plot parameters and their scores
@@ -316,7 +316,7 @@ def test_optimize_cv_random_int(plot):
                                              n_splits=3,
                                              max_time=None,
                                              max_evals=10,
-                                             optimizer='random',
+                                             n_random=10,
                                              metric='mse')
 
     # Plot parameters and their scores

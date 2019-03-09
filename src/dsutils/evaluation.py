@@ -297,11 +297,6 @@ def optimize_cv(X, y, model, bounds,
     if n_jobs < 1:
         raise ValueError('n_jobs must be positive')
 
-    # Import MOE
-    from moe.easy_interface.experiment import Experiment
-    from moe.easy_interface.simple_endpoint import gp_next_points
-    from moe.optimal_learning.python.data_containers import SamplePoint
-
     # Create scorer
     if metric == 'r2':
         scorer = make_scorer(r2_score)
@@ -324,16 +319,35 @@ def optimize_cv(X, y, model, bounds,
     else:
         flip = -1
 
+    # Collect info about parameters to optimize
+    Np = len(bounds) #number of parameters
+    step_params = []
+    steps = []
+    params = []
+    lb = []
+    ub = []
+    dtypes = []
+    for param_name, val in bounds.items():
+        step_params.append(param_name)
+        steps.append(param_name.split('__')[0])
+        params.append(param_name.split('__')[1])
+        lb.append(val[0])
+        ub.append(val[1])
+        if len(val) > 2:
+            dtypes.append(val[2])
+        else:
+            dtype.append(float)
+
     # Initialize arrays to store evaluated parameters
-    scores = []
-    params = dict()
-    new_params = dict()
-    for param in bounds:
-        params[param] = []
+    sampled_scores = []
+    sampled_params = []
+
+    # Create Gaussian process regressor
+    gp = GaussianProcessRegressor(kernel=RationalQuadratic(),
+                                  n_restarts_optimizer=5)
 
     # Search for optimal parameters
     start_time = time.time()
-    moe_exp = Experiment([bounds[p][:2] for p in bounds])
     for i in range(max_evals):
 
         # Give up if we've spent too much time
@@ -342,47 +356,42 @@ def optimize_cv(X, y, model, bounds,
 
         # Randomly choose next parameter values to try
         if i < n_random:
-            for param, bound in bounds.items():
-                new_params[param] = np.random.uniform(bound[0], bound[1])
+            new_params = np.random.uniform(lb, ub)
 
         # Bayesian optimizer
         else:
-            next_point_to_sample = gp_next_points(moe_exp)[0]
-            for param, bound in bounds.items():
-                new_params[param] = np.random.uniform(bound[0], bound[1])
-            # TODO: uhh should use list of param names and bounds...
-            # so ordering doesn't get messed up w/ dict
+            pass
+            # TODO
+            # use alpha of: np.std(sampled_scores-sampled_scores.mean(axis=1).reshape(-1, 1))
 
         # Convert integer params to integer
-        for param, bound in bounds.items():
-            if bound[2] is int:
-                new_params[param] = round(new_params[param])
+        new_params = new_params.tolist()
+        for iP in range(Np):
+            if dtypes[iP] is int:
+                new_params[iP] = round(new_params[iP])
 
-        # Modify model to use new parameters, and store values
-        for param_name, val in new_params.items():
-            step = param_name.split('__')[0]
-            param = param_name.split('__')[1]
-            model.named_steps[step].set_params(**{param: val})
-            params[param_name].append(val)
+        # Modify model to use new parameters
+        for iP in range(Np):
+            model.named_steps[steps[iP]].set_params({params[iP],
+                                                     new_params[iP]})
 
         # Compute and store cross-validated metric
-        t_score = cross_val_score(model, X, y, cv=n_splits, 
-                                  scoring=scorer, n_jobs=n_jobs)
+        scores = cross_val_score(model, X, y, cv=n_splits, 
+                                 scoring=scorer, n_jobs=n_jobs)
 
         # Store parameters and scores
-        scores.append(t_score.mean())
-        moe_exp.historical_data.append_sample_points([
-            SamplePoint(next_point_to_sample,
-                        scores.mean(),
-                        scores.var())
-        ])
+        sampled_scores.append(scores)
+        sampled_params.append(new_params)
 
     # Get expected best point
-    # TODO
+    # TODO: w/ the gp loss surface
 
-    # TODO: use MOE?
-    # add functionality for seeing the GP plot 
+    # Turn sampled_params into a dict
+    sp = np.array(sampled_params)
+    sampled_params = dict()
+    for iP in range(Np):
+        sampled_params[step_params[iP]] = sp[:,iP]
 
     # Return optimal parameters, all evaluated parameters, and scores
-    return opt_params, params, scores
+    return opt_params, sampled_params, sampled_scores
 
