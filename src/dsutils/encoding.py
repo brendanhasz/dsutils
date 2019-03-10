@@ -59,7 +59,7 @@ class NullEncoder(BaseEstimator, TransformerMixin):
         if cols is not None and not isinstance(cols, (list, str)):
             raise TypeError('cols must be None, or a list or a string')
         if isinstance(cols, list):
-            if not all(isinstance(c) for c in cols):
+            if not all(isinstance(c, str) for c in cols):
                 raise TypeError('each element of cols must be a string')
         if not isinstance(dtype, str):
             raise TypeError('dtype must be a string (e.g. \'uint8\'')
@@ -166,7 +166,7 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
         if cols is not None and not isinstance(cols, (list, str)):
             raise TypeError('cols must be None, or a list or a string')
         if isinstance(cols, list):
-            if not all(isinstance(c) for c in cols):
+            if not all(isinstance(c, str) for c in cols):
                 raise TypeError('each element of cols must be a string')
 
         # Store parameters
@@ -304,7 +304,7 @@ class OneHotEncoder(BaseEstimator, TransformerMixin):
         if cols is not None and not isinstance(cols, (list, str)):
             raise TypeError('cols must be None, or a list or a string')
         if isinstance(cols, list):
-            if not all(isinstance(c) for c in cols):
+            if not all(isinstance(c, str) for c in cols):
                 raise TypeError('each element of cols must be a string')
         if not isinstance(reduce_df, bool):
             raise TypeError('reduce_df must be True or False')
@@ -428,7 +428,7 @@ class TargetEncoder(BaseEstimator, TransformerMixin):
         if cols is not None and not isinstance(cols, (list, str)):
             raise TypeError('cols must be None, or a list or a string')
         if isinstance(cols, list):
-            if not all(isinstance(c) for c in cols):
+            if not all(isinstance(c, str) for c in cols):
                 raise TypeError('each element of cols must be a string')
         if not isinstance(dtype, str):
             raise TypeError('dtype must be a string (e.g. \'uint8\'')
@@ -550,7 +550,7 @@ class TargetEncoderCV(BaseEstimator, TransformerMixin):
         if cols is not None and not isinstance(cols, (list, str)):
             raise TypeError('cols must be None, or a list or a string')
         if isinstance(cols, list):
-            if not all(isinstance(c) for c in cols):
+            if not all(isinstance(c, str) for c in cols):
                 raise TypeError('each element of cols must be a string')
         if not isinstance(n_splits, int):
             raise TypeError('n_splits must be an integer')
@@ -678,7 +678,7 @@ class TargetEncoderLOO(BaseEstimator, TransformerMixin):
         if cols is not None and not isinstance(cols, (list, str)):
             raise TypeError('cols must be None, or a list or a string')
         if isinstance(cols, list):
-            if not all(isinstance(c) for c in cols):
+            if not all(isinstance(c, str) for c in cols):
                 raise TypeError('each element of cols must be a string')
         if not isinstance(dtype, str):
             raise TypeError('dtype must be a string (e.g. \'float64\'')

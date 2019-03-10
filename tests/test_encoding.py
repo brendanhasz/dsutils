@@ -7,7 +7,11 @@ import pandas as pd
 #import matplotlib.pyplot as plt
 
 from dsutils.encoding import null_encode
+from dsutils.encoding import label_encode
 from dsutils.encoding import one_hot_encode
+from dsutils.encoding import target_encode
+from dsutils.encoding import target_encode_cv
+from dsutils.encoding import target_encode_loo
 from dsutils.encoding import TargetEncoder
 from dsutils.encoding import TargetEncoderCV
 
@@ -19,7 +23,7 @@ def test_null_encode():
     df = pd.DataFrame()
     df['a'] = np.random.randn(10)
     df['b'] = np.random.randn(10)
-    null_encode(df)
+    df = null_encode(df)
     assert 'a' in df
     assert 'b' in df
     assert df.shape[0] == 10
@@ -30,7 +34,7 @@ def test_null_encode():
     df['a'] = np.random.randn(10)
     df['b'] = np.random.randn(10)
     df.loc[2, 'a'] = np.nan
-    null_encode(df, cols=['a'])
+    df = null_encode(df, cols=['a'])
     assert 'a' in df
     assert 'b' in df
     assert 'a_isnull' in df
@@ -44,7 +48,7 @@ def test_null_encode():
     df['c'] = np.random.randn(10)
     df.loc[2, 'a'] = np.nan
     df.loc[5, 'b'] = np.nan
-    null_encode(df)
+    df = null_encode(df)
     assert 'a' in df
     assert 'b' in df
     assert 'c' in df
@@ -62,7 +66,7 @@ def test_null_encode():
     df.loc[2, 'a'] = np.nan
     df.loc[5, 'b'] = np.nan
     df.loc[6, 'c'] = np.nan
-    null_encode(df, cols=['a', 'b'])
+    df = null_encode(df, cols=['a', 'b'])
     assert 'a' in df
     assert 'b' in df
     assert 'c' in df
@@ -80,7 +84,7 @@ def test_null_encode():
     df.loc[2, 'a'] = np.nan
     df.loc[5, 'b'] = np.nan
     df.loc[6, 'c'] = np.nan
-    null_encode(df, cols='a')
+    df = null_encode(df, cols='a')
     assert 'a' in df
     assert 'b' in df
     assert 'c' in df
@@ -91,6 +95,52 @@ def test_null_encode():
     assert df.shape[1] == 4
 
 
+def test_label_encode():
+    """Tests encoding.label_encode"""
+
+    df = pd.DataFrame()
+    df['a'] = np.random.randn(10)
+    df['b'] = np.random.randn(10)
+
+    # Not specifying cols w/ not categorical cols should not change the df
+    df = label_encode(df)
+    assert 'a' in df
+    assert 'b' in df
+    assert df.shape[0] == 10
+    assert df.shape[1] == 2
+
+    # Should auto-detect categorical cols and label encode
+    df['c'] = ['a', 'a', 'a', 'b', 'b', 'c', 'a', 'a', 'c', 'b']
+    df = label_encode(df, cols=['c'])
+    assert 'a' in df
+    assert 'b' in df
+    assert 'c' in df
+    assert df.shape[0] == 10
+    assert df.shape[1] == 3
+    assert df['c'].nunique() == 3
+    assert df.iloc[0, 2] == 0
+    assert df.iloc[1, 2] == 0
+    assert df.iloc[2, 2] == 0
+    assert df.iloc[3, 2] == 1
+    assert df.iloc[4, 2] == 1
+    assert df.iloc[5, 2] == 2
+    assert df.iloc[6, 2] == 0
+    assert df.iloc[7, 2] == 0
+    assert df.iloc[8, 2] == 2
+    assert df.iloc[9, 2] == 1
+
+    # Passing a string instead of a list for cols should work the same way
+    df['c'] = ['a', 'a', 'a', 'b', 'b', 'b', 'a', 'a', 'a', 'b']
+    df = label_encode(df, cols='c')
+    assert 'a' in df
+    assert 'b' in df
+    assert 'c' in df
+    assert df.shape[0] == 10
+    assert df.shape[1] == 3
+    assert df['c'].nunique() == 2
+
+
+
 def test_one_hot_encode():
     """Tests encoding.one_hot_encode"""
 
@@ -99,15 +149,15 @@ def test_one_hot_encode():
     df['b'] = np.random.randn(10)
 
     # Not specifying cols w/ not categorical cols should not change the df
-    one_hot_encode(df)
+    df = one_hot_encode(df)
     assert 'a' in df
     assert 'b' in df
     assert df.shape[0] == 10
     assert df.shape[1] == 2
 
-    # One binary column should only add 1 col (and should be auto-detected)
+    # One binary column w/ reduce_df=True should only add 1 col 
     df['c'] = ['a', 'a', 'a', 'b', 'b', 'b', 'a', 'a', 'a', 'b']
-    one_hot_encode(df, cols=['c'])
+    df = one_hot_encode(df, cols=['c'], reduce_df=True)
     assert 'a' in df
     assert 'b' in df
     assert 'c_a' in df
@@ -116,7 +166,7 @@ def test_one_hot_encode():
 
     # Passing a string instead of a list for cols should work the same way
     df['c'] = ['a', 'a', 'a', 'b', 'b', 'b', 'a', 'a', 'a', 'b']
-    one_hot_encode(df, cols='c')
+    df = one_hot_encode(df, cols='c', reduce_df=True)
     assert 'a' in df
     assert 'b' in df
     assert 'c_a' in df
@@ -129,7 +179,7 @@ def test_one_hot_encode():
     df['a'] = np.random.randn(10)
     df['b'] = np.random.randn(10)
     df['c'] = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2, 3])
-    one_hot_encode(df, cols=['c'])
+    df = one_hot_encode(df, cols=['c'])
     assert 'a' in df
     assert 'b' in df
     assert 'c_0' in df
@@ -145,7 +195,7 @@ def test_one_hot_encode():
     df['a'] = np.random.randn(10)
     df['b'] = np.random.randn(10)
     df['c'] = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2, 3])
-    one_hot_encode(df, cols=['c'], reduce_df=True)
+    df = one_hot_encode(df, cols=['c'], reduce_df=True)
     assert 'a' in df
     assert 'b' in df
     assert 'c_0' in df
@@ -162,7 +212,7 @@ def test_one_hot_encode():
     df['b'] = np.random.randn(10)
     df['c'] = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2, 3])
     df['d'] = ['a', 'a', 'a', 'b', 'b', 'b', 'a', 'a', 'a', 'b']
-    one_hot_encode(df, cols=['c', 'd'])
+    df = one_hot_encode(df, cols=['c', 'd'])
     assert 'a' in df
     assert 'b' in df
     assert 'c_0' in df
@@ -170,8 +220,9 @@ def test_one_hot_encode():
     assert 'c_2' in df
     assert 'c_3' in df
     assert 'd_a' in df
+    assert 'd_b' in df
     assert df.shape[0] == 10
-    assert df.shape[1] == 7
+    assert df.shape[1] == 8
 
     # When cols not specified, should auto-detect categorical columns
     del df
@@ -180,15 +231,16 @@ def test_one_hot_encode():
     df['b'] = np.random.randn(10)
     df['c'] = ['a', 'a', 'a', 'b', 'b', 'b', 'c', 'c', 'c', 'c']
     df['d'] = ['a', 'a', 'a', 'b', 'b', 'b', 'a', 'a', 'a', 'b']
-    one_hot_encode(df)
+    df = one_hot_encode(df)
     assert 'a' in df
     assert 'b' in df
     assert 'c_a' in df
     assert 'c_b' in df
     assert 'c_c' in df
     assert 'd_a' in df
+    assert 'd_b' in df
     assert df.shape[0] == 10
-    assert df.shape[1] == 6
+    assert df.shape[1] == 7
 
 
 def test_TargetEncoder():
@@ -430,3 +482,73 @@ def test_TargetEncoderCV():
     assert dfo.loc[5, 'c'] == 6
     assert dfo.loc[6, 'c'] == 5
     assert dfo.loc[7, 'c'] == 6
+
+
+def test_target_encode():
+    """Tests encoding.target_encode"""
+
+    # Data
+    df = pd.DataFrame()
+    df['a'] = np.random.randn(10)
+    df['b'] = ['a', 'a', 'b', 'b', 'c', 'c', 'd', 'd', 'd', np.nan]
+    df['y'] = [0, 2, 4, 6, 8, 10, 19, 20, 21, 1000]
+
+    # Encode
+    dfo = target_encode(df[['a', 'b']], df['y'], cols='b')
+
+    # Check outputs
+    assert 'a' in dfo
+    assert 'b' in dfo
+    assert 'y' not in dfo
+    assert dfo.shape[0] == 10
+    assert dfo.shape[1] == 2
+    assert dfo.loc[0, 'b'] == 1
+    assert dfo.loc[1, 'b'] == 1
+    assert dfo.loc[2, 'b'] == 5
+    assert dfo.loc[3, 'b'] == 5
+    assert dfo.loc[4, 'b'] == 9
+    assert dfo.loc[5, 'b'] == 9
+    assert dfo.loc[6, 'b'] == 20
+    assert dfo.loc[7, 'b'] == 20
+    assert dfo.loc[8, 'b'] == 20
+    assert np.isnan(dfo.loc[9, 'b'])
+
+
+def test_target_encode_cv():
+    """Tests encoding.target_encode_cv"""
+
+    # Data
+    df = pd.DataFrame()
+    df['a'] = np.random.randn(10)
+    df['b'] = ['a', 'a', 'b', 'b', 'c', 'c', 'd', 'd', 'd', np.nan]
+    df['y'] = [0, 2, 4, 6, 8, 10, 19, 20, 21, 1000]
+
+    # Encode
+    dfo = target_encode_cv(df[['a', 'b']], df['y'], cols='b')
+    
+    # Check outputs
+    assert 'a' in dfo
+    assert 'b' in dfo
+    assert 'y' not in dfo
+    assert dfo.shape[0] == 10
+    assert dfo.shape[1] == 2
+
+
+def test_target_encode_loo():
+    """Tests encoding.target_encode_loo"""
+
+    # Data
+    df = pd.DataFrame()
+    df['a'] = np.random.randn(10)
+    df['b'] = ['a', 'a', 'b', 'b', 'c', 'c', 'd', 'd', 'd', np.nan]
+    df['y'] = [0, 2, 4, 6, 8, 10, 19, 20, 21, 1000]
+
+    # Encode
+    dfo = target_encode_loo(df[['a', 'b']], df['y'], cols='b')
+    
+    # Check outputs
+    assert 'a' in dfo
+    assert 'b' in dfo
+    assert 'y' not in dfo
+    assert dfo.shape[0] == 10
+    assert dfo.shape[1] == 2
