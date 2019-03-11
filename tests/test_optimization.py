@@ -28,7 +28,7 @@ def test_GaussianProcessOptimizer_1d(plot):
 
     # Add points
     xx = np.linspace(2, 8, 20)
-    yy = np.sin(xx*2)+0.5*np.random.randn(20)
+    yy = np.sin(xx*2)+0.5*np.random.randn(20) + 10
     for iP in range(len(xx)):
         gpo.add_point([xx[iP]], [yy[iP]])
 
@@ -41,6 +41,45 @@ def test_GaussianProcessOptimizer_1d(plot):
     new_point = gpo.random_point()
     assert isinstance(new_point, list)
     assert len(new_point) == 1
+    assert isinstance(new_point[0], float)
+
+    # Get the next point
+
+    # Get the best point
+
+    # Best point so far
+    # best_point(expected=False)
+
+    # Get x
+
+    # Get y
+
+
+
+def test_GaussianProcessOptimizer_int(plot):
+    """Tests optimization.GaussianProcessOptimizer"""
+
+    # Create the optimizer object
+    gpo = GaussianProcessOptimizer(lb=[0], ub=[10], 
+                                   dtype=[int],
+                                   parameters='x')
+
+    # Add points
+    xx = np.arange(20)
+    yy = np.sin(xx)+0.5*np.random.randn(20) + 10
+    for iP in range(len(xx)):
+        gpo.add_point([int(xx[iP])], [yy[iP]])
+
+    # Show the loss surface
+    #gpo.plot_surface('x')
+    #if plot:
+    #    plt.show()
+
+    # Draw a random point
+    #new_point = gpo.random_point()
+    #assert isinstance(new_point, list)
+    #assert len(new_point) == 1
+    #assert isinstance(new_point[0], float)
 
 
 """

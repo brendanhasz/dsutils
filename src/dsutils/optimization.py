@@ -102,6 +102,14 @@ class GaussianProcessOptimizer():
             n_restarts_optimizer=n_restarts_optimizer,
         )
 
+        # Keep track of highest (or lowest) point so far
+        if minimize:
+            self.opt_y = np.inf
+            self.opt_x = None
+        else:
+            self.opt_y = -np.inf
+            self.opt_x = None
+
 
     def _ensure_types(self, x):
         """Ensure types in x match dtype."""
@@ -207,9 +215,21 @@ class GaussianProcessOptimizer():
             for ty in y:
                 self.x.append(x)
                 self.y.append(ty)
+            ty = np.array(y).mean()
         else:
             self.x.append(x)
             self.y.append(y)
+            ty = y
+
+        # Store best point so far
+        if self.minimize:
+            if ty < self.opt_y:
+                self.opt_y = ty
+                self.opt_x = x
+        else:
+            if ty > self.opt_y:
+                self.opt_y = ty
+                self.opt_x = x
 
 
     def random_point(self, get_dict=False):
@@ -250,6 +270,8 @@ class GaussianProcessOptimizer():
         """
         pass 
         # TODO
+
+        # using self.opt_y for f(x_hat) in expected improvement
 
         x = self._ensure_types(x)
         if get_dict: 
