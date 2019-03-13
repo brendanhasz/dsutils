@@ -10,6 +10,8 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from scipy.stats import norm
+from scipy.optimize import minimize
 
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RationalQuadratic
@@ -21,13 +23,14 @@ from .plotting import plot_err
 
 
 class GaussianProcessOptimizer():
-    """Optimizer which uses a gaussian process and expected improvement.
+    """Bayesian function optimizer which uses a Gaussian process to model the
+    expensive function, and expected improvement as the acquisition function.
 
     """
 
     def __init__(self, lb, ub,
                  dtype=None,
-                 parameters=None,
+                 param_names=None,
                  minimize=True,
                  kernel=RationalQuadratic()+WhiteKernel(noise_level=1e-4),
                  n_restarts_optimizer=5):
@@ -42,6 +45,8 @@ class GaussianProcessOptimizer():
         dtype : list
             Datatype for each parameter.  int or float
             Default is to assume float for all parameters.
+        param_names : list of str
+            Parameter names
         minimize : bool
             Whether to minimize (True) or maximize (False).
         kernel : sklearn.gaussian_process.kernels.Kernel
@@ -58,8 +63,8 @@ class GaussianProcessOptimizer():
             ub = [ub]
         if dtype is None or dtype is int or dtype is float:
             dtype = [dtype]
-        if parameters is None or parameters is str:
-            parameters = [parameters]
+        if param_names is None or param_names is str:
+            param_names = [param_names]
 
         # Check types
         if not isinstance(lb, list) or not isinstance(ub, list):
@@ -83,19 +88,20 @@ class GaussianProcessOptimizer():
             dtype = [float]*self.num_dims
 
         # Assign parameter names if not specified
-        if parameters[0] is None:
-            parameters = [None]*self.num_dims
+        if param_names[0] is None:
+            param_names = [None]*self.num_dims
             for iP in range(self.num_dims):
-                parameters[iP] = 'Parameter_'+str(iP)
+                param_names[iP] = 'Parameter_'+str(iP)
 
         # Store parameters
         self.lb = lb
         self.ub = ub
         self.db = [ub[i]-lb[i] for i in range(self.num_dims)]
+        self.bounds = [(lb[i], ub[i]) for i in range(self.num_dims)]
         self.x = []
         self.y = []
         self.dtype = dtype
-        self.parameters = parameters
+        self.param_names = param_names
         self.minimize = minimize
         self.gp = GaussianProcessRegressor(
             kernel=kernel, alpha=0.0,
@@ -125,14 +131,22 @@ class GaussianProcessOptimizer():
         """Make x a dict w/ keys=dimension names"""
         xo = dict()
         for iP in range(self.num_dims):
-            xo[self.parameters[iP]] = x[iP]
+            xo[self.param_names[iP]] = x[iP]
         return xo
 
 
-    def _fit_gp(self, x, y):
+    def _fit_gp(self, step=None):
         """Fit the Gaussian process to data
 
         """
+
+        # Set step if not specified
+        if step is None:
+            step = len(self.x)
+
+        # Fit GP to 1st ``step`` steps
+        x = self.x[:step]
+        y = self.y[:step]
         
         # Convert to numpy arrays
         x = np.array(x).astype('float64')
@@ -154,7 +168,7 @@ class GaussianProcessOptimizer():
         self.gp = self.gp.fit(x, y)
 
 
-    def _pred_gp(self, x, return_err=False):
+    def _pred_gp(self, x, return_std=False):
         """Predict y with the Gaussian process.
 
         """
@@ -170,14 +184,15 @@ class GaussianProcessOptimizer():
         x = x + 1e-5*np.random.standard_normal(x.shape)
 
         # Predict y
-        y, y_cov = self.gp.predict(x, return_cov=True)
+        y, y_std = self.gp.predict(x, return_std=True)
 
         # Convert back to true scale
-        y= y*self._y_std+self._y_mean
+        y = y*self._y_std+self._y_mean
+        y_std = y_std*self._y_std
 
-        # Return error if requested
-        if return_err:
-            return y, self._y_std*np.sqrt(np.diag(y_cov))
+        # Return std dev if requested
+        if return_std:
+            return y, y_std
         else:
             return y
 
@@ -253,7 +268,31 @@ class GaussianProcessOptimizer():
         return x
 
 
-    def next_point(self, get_dict=False):
+    def _expected_improvement(self, x):
+        """Compute the expected improvement at x.
+
+        Parameters
+        ----------
+        x : ndarray
+            Point at which to evaluate the expected improvement
+
+        Returns
+        -------
+        float
+            The expected improvement at x
+        """
+
+        # Predict performance at x
+        mu, sigma = self._pred_gp(x.reshape(-1, self.num_dims),
+                                  return_std=True)
+
+        # Compute and return expected improvement
+        flip = np.power(-1, self.minimize)
+        z = flip*(mu-self.opt_y)/sigma
+        return flip*(mu-self.opt_y)*norm.cdf(z) + sigma*norm.pdf(z)
+
+
+    def next_point(self, get_dict=False, n_restarts=10):
         """Get the point with the highest expected improvement.
 
         Parameters
@@ -261,6 +300,9 @@ class GaussianProcessOptimizer():
         get_dict : bool
             Whether to return a dict w/ keys=dimension names (True), or just
             a list (False, the default).
+        n_restarts : int
+            Number of times to restart the optimizer.
+            Default = 10
 
         Returns
         -------
@@ -268,18 +310,34 @@ class GaussianProcessOptimizer():
             List of parameter values for the next suggested point to sample,
             or a dict if dict=True
         """
-        pass 
-        # TODO
 
-        # using self.opt_y for f(x_hat) in expected improvement
+        # Fit the Gaussian process to samples so far
+        self._fit_gp()
 
+        # Find x with greatest expected improvement
+        x = self.random_point()
+        best_score = np.inf
+        for iR in range(n_restarts):
+
+            # Maximize expected improvement
+            res = minimize(lambda x: -self._expected_improvement(x),
+                           self.random_point(),
+                           method='L-BFGS-B',
+                           bounds=self.bounds)
+
+            # Keep x if it's the best so far
+            if res.fun < best_score:
+                best_score = res.fun
+                x = res.x
+
+        # Return x with highest expected improvement
         x = self._ensure_types(x)
         if get_dict: 
             x = self._make_dict(x)
         return x
 
 
-    def best_point(self, expected=True, get_dict=False):
+    def best_point(self, expected=True, get_dict=False, n_restarts=10):
         """Get the expected best point.
 
         Parameters
@@ -291,12 +349,39 @@ class GaussianProcessOptimizer():
         get_dict : bool
             Whether to return a dict w/ keys=dimension names (True), or just
             a list (False, the default).
+        n_restarts : int
+            Number of times to restart the optimizer.
+            Default = 10
 
-
+        Returns
+        -------
+        list or dict
+            List of x values for the best expected point,
+            or a dict if dict=True
         """
-        pass 
-        # TODO
 
+        # Fit the Gaussian process to samples so far
+        self._fit_gp()
+
+        # Find x with greatest expected score
+        flip = np.power(-1, self.minimize)
+        score_func = lambda x: flip*self._pred_gp(x.reshape(-1,self.num_dims))
+        x = self.random_point()
+        best_score = np.inf
+        for iR in range(n_restarts):
+
+            # Maximize expected improvement
+            res = minimize(score_func, 
+                           self.random_point(),
+                           method='L-BFGS-B',
+                           bounds=self.bounds)
+
+            # Keep x if it's the best so far
+            if res.fun < best_score:
+                best_score = res.fun
+                x = res.x
+
+        # Return x with highest expected improvement
         x = self._ensure_types(x)
         if get_dict: 
             x = self._make_dict(x)
@@ -321,7 +406,7 @@ class GaussianProcessOptimizer():
         if get_dict:
             xo = dict()
             for iP in range(self.num_dims):
-                xo[self.parameters[iP]] = [s[iP] for s in self.x]
+                xo[self.param_names[iP]] = [s[iP] for s in self.x]
             return xo
         else:
             return self.x
@@ -332,25 +417,30 @@ class GaussianProcessOptimizer():
         return self.y
 
 
-    def plot_surface(self, x_dim, y_dim=None, res=100, step=None):
+    def plot_surface(self, x_dim=None, y_dim=None, res=100, step=None,
+                     refit=True):
         """Plot the estimated surface of the function being evaluated.
 
         Parameters
         ----------
-        x_dim : str or int
-            Name or index of parameter to plot on the x axis
-        y_dim : str or int
+        x_dim : None, str, or int
+            Name or index of parameter to plot on the x axis.
+            If none specified, uses the first parameter.
+        y_dim : None, str, or int
             Name or index of parameter to plot on the y axis.
             If none specified, plots only a 1D plot of x_dim
         res : int > 1
             Resolution of the plot
         step : None or int
             Plot loss surface only from points up to step step.
+        refit : bool
+            Whether to re-fit the Gaussian process.
+            Default = True
         """
 
         # Check inputs
-        if not isinstance(x_dim, (int, str)):
-            raise TypeError('x_dim must be str or int')
+        if x_dim is not None and not isinstance(x_dim, (int, str)):
+            raise TypeError('x_dim must be None, str, or int')
         if y_dim is not None and not isinstance(y_dim, (int, str)):
             raise TypeError('y_dim must be None, str, or int')
         if not isinstance(res, int):
@@ -362,32 +452,38 @@ class GaussianProcessOptimizer():
         if isinstance(step, int) and step < 0:
             raise ValueError('step must be non-negative')
 
-        # Convert x_dim and y_dim to int
+        # Convert x_dim and y_dim to int if they are strings
         if isinstance(x_dim, str):
-            x_dim = self.parameters.index(x_dim)
+            x_dim = self.param_names.index(x_dim)
         if isinstance(y_dim, str):
-            y_dim = self.parameters.index(y_dim)
+            y_dim = self.param_names.index(y_dim)
 
-        # Set step if not specified
-        if step is None:
-            step = len(self.x)
+        # Set x_dim if not specified
+        if x_dim is None:
+            x_dim = 0
 
         # Fit GP to 1st ``step`` steps
-        self._fit_gp(self.x[:step], self.y[:step])
+        if refit:
+            self._fit_gp(step=step)
 
         # 1D plot
         if y_dim is None:
 
-            # Predict y as a fn of x (all other params being 0)
-            x_pred = np.zeros((res, self.num_dims))
+            # Predict y as a fn of x (other params being @ middle of bounds)
+            x_pred = np.ones((res, self.num_dims))
+            x_pred *= (np.array(self.bounds)
+                       .mean(axis=1)
+                       .reshape(-1, self.num_dims))
             x_pred[:,x_dim] = np.linspace(self.lb[x_dim], self.ub[x_dim], res)
-            y_pred, y_err = self._pred_gp(x_pred, return_err=True)
+            y_pred, y_err = self._pred_gp(x_pred, return_std=True)
 
-            # Plot the Gaussian process
+            # Plot the Gaussian process' estimate of the function
             plot_err(x_pred[:, x_dim], y_pred, y_err)
+            plt.xlabel(self.param_names[x_dim])
+            plt.ylabel('Value')
 
             # Plot the sampled points
-            for iP in range(step):
+            for iP in range(len(self.x) if step is None else step):
                 plt.plot(self.x[iP][x_dim], self.y[iP], '.', color='0.6')
 
         # 2D plot
@@ -402,12 +498,97 @@ class GaussianProcessOptimizer():
                 np.linspace(self.lb[y_dim], self.ub[y_dim], res))
             x_pred[x_dim] = xp
             x_pred[y_dim] = yp
-            y_pred = self._pred_gp(x_pred, return_err=False)
+            y_pred = self._pred_gp(x_pred, return_std=True)
 
             # Plot the Gaussian process
             plt.imshow(y_pred.reshape((res, res)), aspect='auto', 
                        interpolation='bicubic', origin='lower')
             """
+
+    def plot_ei_surface(self, x_dim=None, y_dim=None, res=100, step=None,
+                        refit=True):
+        """Plot the expected improvement surface.
+
+        Parameters
+        ----------
+        x_dim : str or int
+            Name or index of parameter to plot on the x axis.
+            If none specified, uses the first parameter.
+        y_dim : str or int
+            Name or index of parameter to plot on the y axis.
+            If none specified, plots only a 1D plot of x_dim
+        res : int > 1
+            Resolution of the plot
+        step : None or int
+            Plot loss surface only from points up to step step.
+        refit : bool
+            Whether to re-fit the Gaussian process.
+            Default = True
+        """
+
+        # Check inputs
+        if x_dim is not None and not isinstance(x_dim, (int, str)):
+            raise TypeError('x_dim must be None, str, or int')
+        if y_dim is not None and not isinstance(y_dim, (int, str)):
+            raise TypeError('y_dim must be None, str, or int')
+        if not isinstance(res, int):
+            raise TypeError('res must be an int')
+        if res < 1:
+            raise ValueError('res must be positive')
+        if step is not None and not isinstance(step, int):
+            raise TypeError('step must be None or an int')
+        if isinstance(step, int) and step < 0:
+            raise ValueError('step must be non-negative')
+
+        # Convert x_dim and y_dim to int if they are strings
+        if isinstance(x_dim, str):
+            x_dim = self.param_names.index(x_dim)
+        if isinstance(y_dim, str):
+            y_dim = self.param_names.index(y_dim)
+
+        # Set x_dim if not specified
+        if x_dim is None:
+            x_dim = 0
+
+        # Fit GP to 1st ``step`` steps
+        if refit:
+            self._fit_gp(step=step)
+
+        # 1D plot
+        if y_dim is None:
+
+            # Predict y as a fn of x (other params being @ middle of bounds)
+            x_pred = np.ones((res, self.num_dims))
+            x_pred *= (np.array(self.bounds)
+                       .mean(axis=1)
+                       .reshape(-1, self.num_dims))
+            x_pred[:,x_dim] = np.linspace(self.lb[x_dim], self.ub[x_dim], res)
+            ei = self._expected_improvement(x_pred)
+
+            # Plot the expected improvement
+            plt.plot(x_pred[:, x_dim], ei)
+            plt.xlabel(self.param_names[x_dim])
+            plt.ylabel('Expected Improvement')
+
+            # Plot the sampled points
+            #for iP in range(len(self.x) if step is None else step):
+            #    plt.plot(self.x[iP][x_dim], self.y[iP], '.', color='0.6')
+
+        # 2D plot
+        else:
+            pass
+            # TODO
+
+
+    def plot_surfaces(self, x_dim=None, y_dim=None, res=100, step=None):
+        """Plot both the estimated function and the expected improvement.
+        """
+        plt.subplot(211)
+        self.plot_surface(x_dim=x_dim, y_dim=y_dim, res=res, step=step,
+                          refit=True)
+        plt.subplot(212)
+        self.plot_ei_surface(x_dim=x_dim, y_dim=y_dim, res=res, step=step,
+                             refit=False)
 
 
 

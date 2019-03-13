@@ -24,18 +24,13 @@ def test_GaussianProcessOptimizer_1d(plot):
     """Tests optimization.GaussianProcessOptimizer"""
 
     # Create the optimizer object
-    gpo = GaussianProcessOptimizer(lb=[0], ub=[10], parameters='x')
+    gpo = GaussianProcessOptimizer(lb=[0], ub=[10], param_names='x')
 
     # Add points
-    xx = np.linspace(2, 8, 20)
-    yy = np.sin(xx*2)+0.5*np.random.randn(20) + 10
+    xx = np.linspace(1, 9, 20)
+    yy = np.sin(xx*2)+0.3*np.random.randn(20) + 10
     for iP in range(len(xx)):
         gpo.add_point([xx[iP]], [yy[iP]])
-
-    # Show the loss surface
-    gpo.plot_surface('x')
-    if plot:
-        plt.show()
 
     # Draw a random point
     new_point = gpo.random_point()
@@ -43,17 +38,65 @@ def test_GaussianProcessOptimizer_1d(plot):
     assert len(new_point) == 1
     assert isinstance(new_point[0], float)
 
-    # Get the next point
+    # Get the suggested next point to sample
+    new_point = gpo.next_point()
+    assert isinstance(new_point, list)
+    assert len(new_point) == 1
+    assert isinstance(new_point[0], float)
 
-    # Get the best point
+    # Get the expected best point
+    best_point = gpo.best_point()
+    assert isinstance(best_point, list)
+    assert len(best_point) == 1
+    assert isinstance(best_point[0], float)
 
     # Best point so far
-    # best_point(expected=False)
+    best_point = gpo.best_point(expected=False)
+    assert isinstance(best_point, list)
+    assert len(best_point) == 1
+    assert isinstance(best_point[0], float)
+
+    # Best point as a dict
+    best_point = gpo.best_point(get_dict=True)
+    assert isinstance(best_point, dict)
+    assert len(best_point) == 1
+    assert isinstance(best_point['x'], float)
 
     # Get x
+    x = gpo.get_x()
+    assert isinstance(x, list)
+    assert len(x) == 20
+
+    # Get x as a dict
+    x = gpo.get_x(get_dict=True)
+    assert isinstance(x, dict)
+    assert len(x) == 1
+    assert len(x['x']) == 20
 
     # Get y
+    y = gpo.get_y()
+    assert isinstance(y, list)
+    assert len(y) == 20
 
+    # Show the loss surface
+    gpo.plot_surface('x')
+    if plot:
+        plt.show()
+
+    # Should also work w/o specifying what parameters to plot
+    gpo.plot_surface()
+    if plot:
+        plt.show()
+
+    # Show the expected improvement surface
+    gpo.plot_ei_surface()
+    if plot:
+        plt.show()
+
+    # Plot both surfaces
+    gpo.plot_surfaces()
+    if plot:
+        plt.show()
 
 
 def test_GaussianProcessOptimizer_int(plot):
@@ -62,7 +105,7 @@ def test_GaussianProcessOptimizer_int(plot):
     # Create the optimizer object
     gpo = GaussianProcessOptimizer(lb=[0], ub=[10], 
                                    dtype=[int],
-                                   parameters='x')
+                                   param_names='x')
 
     # Add points
     xx = np.arange(20)
