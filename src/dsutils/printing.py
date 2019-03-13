@@ -5,6 +5,10 @@
 
 """
 
+
+import numpy as np
+
+
 def print_table(header, data, 
                 align=None,
                 colsep='  ',
