@@ -5,6 +5,10 @@
 
 """
 
+
+import numpy as np
+
+
 def print_table(header, data, 
                 align=None,
                 colsep='  ',
@@ -168,7 +172,9 @@ def describe_df(df, max_unique=10, sigfigs=5):
         mins.append(series.min())
 
         # Mean
-        if str(df[col].dtype) == 'object':
+        if str(df[col].dtype) == 'object': #can't do mean for object
+            means.append(' ')
+        elif df[col].dtype.type is np.datetime64: #or datetime
             means.append(' ')
         else:
             means.append(series.mean())
@@ -179,6 +185,8 @@ def describe_df(df, max_unique=10, sigfigs=5):
         # Mode
         if 'float' in str(df[col].dtype):
             modes.append(' ') #mode on a float col makes pandas choke...
+        elif df[col].dtype.type is np.datetime64: #or datetime
+            modes.append(' ')
         else:
             t_mode = series.mode()
             if len(t_mode) == 0:
