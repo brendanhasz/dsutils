@@ -261,7 +261,7 @@ def cross_val_metric(model, X, y, cv=3,
             preds = model.predict(X.loc[TEix,:])
         
         # Store metric for this fold
-        metrics.append(metric(y[ix], preds))
+        metrics.append(metric(y[TEix], preds))
 
     # Print the metric
     if display is not None:

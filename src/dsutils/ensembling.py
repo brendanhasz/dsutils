@@ -66,6 +66,7 @@ class StackedRegressor(BaseEstimator, RegressorMixin):
         """
         
         # Check inputs
+        # TODO
         
         # Set parameters
         self.base_learners = base_learners
