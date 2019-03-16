@@ -182,3 +182,91 @@ def plot_permutation_importance(importances):
            .reset_index()
            .sort_values('Importance', ascending=False))
     sns.barplot(x='Importance', y='Feature', data=df, order=dfg['Feature'])
+
+
+
+def cross_val_metric(model, X, y, cv=3, 
+                     metric=mean_squared_error, 
+                     train_subset=None, test_subset=None, 
+                     shuffle=True, display=None):
+    """Compute a cross-validated metric for a model.
+    
+    Parameters
+    ----------
+    model : sklearn estimator or callable
+        Model to use for prediction.  Either an sklearn estimator (e.g. a 
+        Pipeline), or a function which takes 3 arguments: 
+        (X_train, y_train, X_test), and returns y_pred.  X_train and X_test
+        should be pandas DataFrames, and y_train and y_pred should be 
+        pandas Series.
+    X : pandas DataFrame
+        Features.
+    y : pandas Series
+        Target variable.
+    cv : int
+        Number of cross-validation folds
+    metric : sklearn.metrics.Metric
+        Metric to evaluate.
+    train_subset : pandas Series (boolean)
+        Subset of the data to train on. 
+        Must be same size as y, with same index as X and y.
+    test_subset : pandas Series (boolean)
+        Subset of the data to test on.  
+        Must be same size as y, with same index as X and y.
+    shuffle : bool
+        Whether to shuffle the data
+    display : None or str
+        Whether to print the cross-validated metric.
+        If None, doesn't print.
+    
+    Returns
+    -------
+    list
+        List of metrics for each test fold (length cv)
+    """
+    
+    # Check types
+    # TODO
+    
+    # Use all samples if not specified
+    if train_subset is None:
+        train_subset = y.copy()
+        train_subset[:] = True
+    if test_subset is None:
+        test_subset = y.copy()
+        test_subset[:] = True
+    
+    # Perform the cross-fold evaluation
+    metrics = []
+    TRix = y.copy()
+    TEix = y.copy()
+    kf = KFold(n_splits=cv, shuffle=shuffle)
+    for train_ix, test_ix in kf.split(X):
+        
+        # Indexes for samples in training fold and in train_subset
+        TRix[:] = False
+        TRix.iloc[train_ix] = True
+        TRix = TRix & train_subset
+        
+        # Indexes for samples in test fold and in test_subset
+        TEix[:] = False
+        TEix.iloc[test_ix] = True
+        TEix = TEix & test_subset
+        
+        # Predict using a function
+        if callable(model):
+            preds = model(X.loc[TRix,:], y[TRix], X.loc[TEix,:])
+        else:
+            model.fit(X.loc[TRix,:], y[TRix])
+            preds = model.predict(X.loc[TEix,:])
+        
+        # Store metric for this fold
+        metrics.append(metric(y[ix], preds))
+
+    # Print the metric
+    if display is not None:
+        print('Cross-validated %s: %0.3f +/- %0.3f'
+              % (display, scores.mean(), scores.std()))
+        
+    # Return a list of metrics for each fold
+    return metrics

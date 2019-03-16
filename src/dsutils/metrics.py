@@ -11,6 +11,12 @@ import pandas as pd
 from .transforms import quantile_transform
 
 
+
+def root_mean_squared_error(y_true, y_pred):
+    """Root mean squared error regression loss"""
+    return np.sqrt(np.mean(np.square(y_true-y_pred)))
+
+
 def mutual_information(xi, yi, res=20):
     """Compute the mutual information between two vectors
 
