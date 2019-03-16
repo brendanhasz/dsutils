@@ -12,6 +12,7 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_val_predict
 from sklearn.base import BaseEstimator, RegressorMixin
+from sklearn.model_selection import KFold
 
 
 
@@ -25,8 +26,14 @@ class EnsembleRegressor(BaseEstimator, RegressorMixin):
         # Check inputs
         # TODO
         
-        # Set parameters
-        self.base_learners = base_learners
+        # Save dict of base learners
+        self.base_learners = dict()
+        if isinstance(base_learners[0], tuple):
+            for learner in base_learners:
+                self.base_learners[learner[0]] = learner[1]
+        else:
+            for i, learner in enumerate(base_learners):
+                self.base_learners[str(i)] = learner
 
         
     def fit(self, X, y):
@@ -35,8 +42,8 @@ class EnsembleRegressor(BaseEstimator, RegressorMixin):
         """
         
         # Fit each base learner to the data
-        for base_learner in self.base_learners:
-            base_learner = base_learner.fit(X, y)
+        for _, learner in self.base_learners.items():
+            learner = learner.fit(X, y)
             
         # Return the fit object
         return self
@@ -49,11 +56,18 @@ class EnsembleRegressor(BaseEstimator, RegressorMixin):
 
         # Compute predictions for each base learner
         preds = pd.DataFrame(index=X.index)
-        for i, base_learner in enumerate(self.base_learners):
-            preds[str(i)] = base_learner.predict(X)
+        for name, learner in self.base_learners.items():
+            preds[name] = learner.predict(X)
         
         # Return the average predictions
-        return y_pred.mean(axis=1)
+        return preds.mean(axis=1)
+
+
+    def fit_predict(self, X, y):
+        """
+        TOOD
+        """
+        return self.fit(X, y).predict(X)
 
 
 
@@ -67,9 +81,18 @@ class StackedRegressor(BaseEstimator, RegressorMixin):
         
         # Check inputs
         # TODO
-        
+        # basee_learners shoudl be list
+
+        # Save dict of base learners
+        self.base_learners = dict()
+        if isinstance(base_learners[0], tuple):
+            for learner in base_learners:
+                self.base_learners[learner[0]] = learner[1]
+        else:
+            for i, learner in enumerate(base_learners):
+                self.base_learners[str(i)] = learner
+
         # Set parameters
-        self.base_learners = base_learners
         self.meta_learner = meta_learner
         self.n_splits = n_splits
         self.shuffle = shuffle
@@ -83,14 +106,15 @@ class StackedRegressor(BaseEstimator, RegressorMixin):
         # Use base learners to cross-val predict
         preds = pd.DataFrame(index=X.index)
         kf = KFold(n_splits=self.n_splits, shuffle=self.shuffle)
-        for i, learner in enumerate(self.base_learners):
-            preds[str(i)] = cross_val_predict(learner, X, y, cv=kf)
+        for name, learner in self.base_learners.items():
+            preds[name] = cross_val_predict(learner, X, y, cv=kf)
             
         # Fit base learners to all samples
-        for learner in self.base_learners:
+        for _, learner in self.base_learners.items():
             learner = learner.fit(X, y)
             
         # Fit meta learner on base learners' predictions
+        # TODO: oh, have to have it predict the *weights*, not the values
         self.meta_learner = self.meta_learner.fit(preds, y)
         
         # Return fit object
@@ -104,11 +128,19 @@ class StackedRegressor(BaseEstimator, RegressorMixin):
         
         # Use base learners to predict
         preds = pd.DataFrame(index=X.index)
-        for i, learner in enumerate(self.base_learners):
-            preds[str(i)] = learner.predict(X)
+        for name, learner in self.base_learners.items():
+            preds[name] = learner.predict(X)
             
         # Use meta learner to predict based on base learners' predictions
+        # TODO: oh, have to have it predict the *weights*, not the values
         y_pred = self.meta_learner.predict(preds)
         
         # Return meta-learner's predictions
         return y_pred
+
+
+    def fit_predict(self, X, y):
+        """
+        TOOD
+        """
+        return self.fit(X, y).predict(X)
