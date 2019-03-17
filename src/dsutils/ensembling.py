@@ -1,8 +1,7 @@
 """Ensembling
 
-* :func:`.permutation_importance`
-* :func:`.permutation_importance_cv`
-* :func:`.plot_permutation_importance`
+* :func:`.EnsembleRegressor`
+* :func:`.StackedRegressor`
 
 """
 
@@ -14,6 +13,7 @@ from sklearn.model_selection import cross_val_predict
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.model_selection import KFold
 
+from dsutils.models import InterpolatingPredictor
 
 
 class EnsembleRegressor(BaseEstimator, RegressorMixin):
@@ -73,7 +73,8 @@ class EnsembleRegressor(BaseEstimator, RegressorMixin):
 
 class StackedRegressor(BaseEstimator, RegressorMixin):
     
-    def __init__(self, base_learners, meta_learner=LogisticRegression,
+    def __init__(self, base_learners, 
+                 meta_learner=InterpolatingPredictor(),
                  n_splits=3, shuffle=True):
         """
         TODO
@@ -114,9 +115,8 @@ class StackedRegressor(BaseEstimator, RegressorMixin):
             learner = learner.fit(X, y)
             
         # Fit meta learner on base learners' predictions
-        # TODO: oh, have to have it predict the *weights*, not the values
         self.meta_learner = self.meta_learner.fit(preds, y)
-        
+
         # Return fit object
         return self
     
@@ -132,7 +132,6 @@ class StackedRegressor(BaseEstimator, RegressorMixin):
             preds[name] = learner.predict(X)
             
         # Use meta learner to predict based on base learners' predictions
-        # TODO: oh, have to have it predict the *weights*, not the values
         y_pred = self.meta_learner.predict(preds)
         
         # Return meta-learner's predictions

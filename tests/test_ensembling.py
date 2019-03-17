@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 #import matplotlib.pyplot as plt
 
-from sklearn.linear_model import LogisticRegression, LinearRegression
+from sklearn.linear_model import Ridge, LinearRegression
 from sklearn.neighbors import KNeighborsRegressor
 
 from dsutils.ensembling import EnsembleRegressor
@@ -51,7 +51,7 @@ def test_StackedRegressor():
         ('linear_regression', LinearRegression()),
         ('knn_regression', KNeighborsRegressor())
     ]
-    meta_learner = LogisticRegression()
+    meta_learner = Ridge()
     stacked_model = StackedRegressor(base_learners, 
                                       meta_learner=meta_learner)
 
