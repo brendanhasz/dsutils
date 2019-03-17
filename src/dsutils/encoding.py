@@ -37,7 +37,8 @@ class NullEncoder(BaseEstimator, TransformerMixin):
 
     """
     
-    def __init__(self, cols=None, suffix='_isnull', dtype='uint8'):
+    def __init__(self, cols=None, suffix='_isnull', dtype='uint8', 
+                 nocol=None):
         """Null encoder.
         
         Parameters
@@ -51,6 +52,12 @@ class NullEncoder(BaseEstimator, TransformerMixin):
         dtype : str
             Datatype to use for encoded columns.
             Default = 'uint8'
+        nocol : None or str
+            Action to take if a col in ``cols`` is not in the dataframe to 
+            transform.  Valid values:
+            * None - ignore cols in ``cols`` which are not in dataframe
+            * 'warn' - issue a warning when a column is not in dataframe
+            * 'err' - raise an error when a column is not in dataframe
         """
 
         # Check types
@@ -63,6 +70,8 @@ class NullEncoder(BaseEstimator, TransformerMixin):
                 raise TypeError('each element of cols must be a string')
         if not isinstance(dtype, str):
             raise TypeError('dtype must be a string (e.g. \'uint8\'')
+        if nocol is not None and nocol not in ('warn', 'err'):
+            raise ValueError('nocol must be None, \'warn\', or \'err\'')
 
         # Store parameters
         if isinstance(cols, str):
@@ -71,6 +80,7 @@ class NullEncoder(BaseEstimator, TransformerMixin):
             self.cols = cols
         self.suffix = suffix
         self.dtype = dtype
+        self.nocol = nocol
 
         
     def fit(self, X, y):
@@ -94,9 +104,14 @@ class NullEncoder(BaseEstimator, TransformerMixin):
             self.cols = [c for c in X if X[c].isnull().sum() > 0]
 
         # Check columns are in X
-        for col in self.cols:
-            if col not in X:
-                raise ValueError('Column \''+col+'\' not in X')
+        if self.nocol == 'err':
+            for col in self.cols:
+                if col not in X:
+                    raise ValueError('Column \''+col+'\' not in X')
+        elif self.nocol == 'warn':
+            for col in self.cols:
+                if col not in X:
+                    print('Column \''+col+'\' not in X')
                         
         # Return fit object
         return self
@@ -152,7 +167,7 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
 
     """
     
-    def __init__(self, cols=None):
+    def __init__(self, cols=None, nocol=None):
         """Label encoder.
         
         Parameters
@@ -160,6 +175,12 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
         cols : list of str
             Columns to label encode.  Default is to label encode all
             categorical columns in the DataFrame.
+        nocol : None or str
+            Action to take if a col in ``cols`` is not in the dataframe to 
+            transform.  Valid values:
+            * None - ignore cols in ``cols`` which are not in dataframe
+            * 'warn' - issue a warning when a column is not in dataframe
+            * 'err' - raise an error when a column is not in dataframe
         """
 
         # Check types
@@ -168,8 +189,11 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
         if isinstance(cols, list):
             if not all(isinstance(c, str) for c in cols):
                 raise TypeError('each element of cols must be a string')
+        if nocol is not None and nocol not in ('warn', 'err'):
+            raise ValueError('nocol must be None, \'warn\', or \'err\'')
 
         # Store parameters
+        self.nocol = nocol
         if isinstance(cols, str):
             self.cols = [cols]
         else:
@@ -197,9 +221,14 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
             self.cols = [c for c in X if str(X[c].dtype)=='object']
 
         # Check columns are in X
-        for col in self.cols:
-            if col not in X:
-                raise ValueError('Column \''+col+'\' not in X')
+        if self.nocol == 'err':
+            for col in self.cols:
+                if col not in X:
+                    raise ValueError('Column \''+col+'\' not in X')
+        elif self.nocol == 'warn':
+            for col in self.cols:
+                if col not in X:
+                    print('Column \''+col+'\' not in X')
 
         # Create the map from objects to integers for each column
         self.maps = dict()
@@ -281,7 +310,7 @@ class OneHotEncoder(BaseEstimator, TransformerMixin):
 
     """
     
-    def __init__(self, cols=None, reduce_df=False, dtype='uint8'):
+    def __init__(self, cols=None, reduce_df=False, dtype='uint8', nocol=None):
         """One-hot encoder.
         
         Parameters
@@ -298,6 +327,12 @@ class OneHotEncoder(BaseEstimator, TransformerMixin):
             Default = False
         dtype : str
             Datatype to use for encoded columns. Default = 'uint8'
+        nocol : None or str
+            Action to take if a col in ``cols`` is not in the dataframe to 
+            transform.  Valid values:
+            * None - ignore cols in ``cols`` which are not in dataframe
+            * 'warn' - issue a warning when a column is not in dataframe
+            * 'err' - raise an error when a column is not in dataframe
         """
 
         # Check types
@@ -310,6 +345,8 @@ class OneHotEncoder(BaseEstimator, TransformerMixin):
             raise TypeError('reduce_df must be True or False')
         if not isinstance(dtype, str):
             raise TypeError('dtype must be a string (e.g. \'uint8\'')
+        if nocol is not None and nocol not in ('warn', 'err'):
+            raise ValueError('nocol must be None, \'warn\', or \'err\'')
 
         # Store parameters
         if isinstance(cols, str):
@@ -318,6 +355,7 @@ class OneHotEncoder(BaseEstimator, TransformerMixin):
             self.cols = cols
         self.reduce_df = reduce_df
         self.dtype = dtype
+        self.nocol = nocol
 
         
     def fit(self, X, y):
@@ -342,9 +380,14 @@ class OneHotEncoder(BaseEstimator, TransformerMixin):
                          if str(X[c].dtype)=='object']
 
         # Check columns are in X
-        for col in self.cols:
-            if col not in X:
-                raise ValueError('Column \''+col+'\' not in X')
+        if self.nocol == 'err':
+            for col in self.cols:
+                if col not in X:
+                    raise ValueError('Column \''+col+'\' not in X')
+        elif self.nocol == 'warn':
+            for col in self.cols:
+                if col not in X:
+                    print('Column \''+col+'\' not in X')
 
         # Store each unique value
         self.maps = dict()
@@ -412,7 +455,7 @@ class TargetEncoder(BaseEstimator, TransformerMixin):
 
     """
     
-    def __init__(self, cols=None, dtype='float64'):
+    def __init__(self, cols=None, dtype='float64', nocol=None):
         """Target encoder.
         
         Parameters
@@ -422,6 +465,12 @@ class TargetEncoder(BaseEstimator, TransformerMixin):
             categorical columns in the DataFrame.
         dtype : str
             Datatype to use for encoded columns. Default = 'float64'
+        nocol : None or str
+            Action to take if a col in ``cols`` is not in the dataframe to 
+            transform.  Valid values:
+            * None - ignore cols in ``cols`` which are not in dataframe
+            * 'warn' - issue a warning when a column is not in dataframe
+            * 'err' - raise an error when a column is not in dataframe
         """
 
         # Check types
@@ -432,6 +481,8 @@ class TargetEncoder(BaseEstimator, TransformerMixin):
                 raise TypeError('each element of cols must be a string')
         if not isinstance(dtype, str):
             raise TypeError('dtype must be a string (e.g. \'uint8\'')
+        if nocol is not None and nocol not in ('warn', 'err'):
+            raise ValueError('nocol must be None, \'warn\', or \'err\'')
 
         # Store parameters
         if isinstance(cols, str):
@@ -439,6 +490,7 @@ class TargetEncoder(BaseEstimator, TransformerMixin):
         else:
             self.cols = cols
         self.dtype = dtype
+        self.nocol = nocol
         
         
     def fit(self, X, y):
@@ -462,9 +514,14 @@ class TargetEncoder(BaseEstimator, TransformerMixin):
             self.cols = [col for col in X if str(X[col].dtype)=='object']
 
         # Check columns are in X
-        for col in self.cols:
-            if col not in X:
-                raise ValueError('Column \''+col+'\' not in X')
+        if self.nocol == 'err':
+            for col in self.cols:
+                if col not in X:
+                    raise ValueError('Column \''+col+'\' not in X')
+        elif self.nocol == 'warn':
+            for col in self.cols:
+                if col not in X:
+                    print('Column \''+col+'\' not in X')
 
         # Encode each element of each column
         self.maps = dict()
@@ -530,7 +587,8 @@ class TargetEncoderCV(BaseEstimator, TransformerMixin):
 
     """
     
-    def __init__(self, cols=None, n_splits=3, shuffle=True, dtype='float64'):
+    def __init__(self, cols=None, n_splits=3, shuffle=True, dtype='float64',
+                 nocol=None):
         """Cross-fold target encoder.
         
         Parameters
@@ -544,6 +602,12 @@ class TargetEncoderCV(BaseEstimator, TransformerMixin):
             Whether to shuffle the data when splitting into folds.
         dtype : str
             Datatype to use for encoded columns. Default = 'float64'
+        nocol : None or str
+            Action to take if a col in ``cols`` is not in the dataframe to 
+            transform.  Valid values:
+            * None - ignore cols in ``cols`` which are not in dataframe
+            * 'warn' - issue a warning when a column is not in dataframe
+            * 'err' - raise an error when a column is not in dataframe
         """
 
         # Check types
@@ -560,6 +624,8 @@ class TargetEncoderCV(BaseEstimator, TransformerMixin):
             raise TypeError('shuffle must be True or False')
         if not isinstance(dtype, str):
             raise TypeError('dtype must be a string (e.g. \'float64\'')
+        if nocol is not None and nocol not in ('warn', 'err'):
+            raise ValueError('nocol must be None, \'warn\', or \'err\'')
 
         # Store parameters
         if isinstance(cols, str):
@@ -569,6 +635,7 @@ class TargetEncoderCV(BaseEstimator, TransformerMixin):
         self.n_splits = n_splits
         self.shuffle = shuffle
         self.dtype = dtype
+        self.nocol = nocol
 
 
     def fit(self, X, y):
@@ -586,7 +653,7 @@ class TargetEncoderCV(BaseEstimator, TransformerMixin):
         TargetEncoderCV
             Returns self, the fit object.
         """
-        self._target_encoder = TargetEncoder(cols=self.cols)
+        self._target_encoder = TargetEncoder(cols=self.cols, nocol=self.nocol)
         self._target_encoder.fit(X, y)
         return self
 
@@ -662,7 +729,7 @@ class TargetEncoderLOO(BaseEstimator, TransformerMixin):
 
     """
     
-    def __init__(self, cols=None, dtype='float64'):
+    def __init__(self, cols=None, dtype='float64', nocol=None):
         """Leave-one-out target encoder.
         
         Parameters
@@ -672,6 +739,12 @@ class TargetEncoderLOO(BaseEstimator, TransformerMixin):
             categorical columns in the DataFrame.
         dtype : str
             Datatype to use for encoded columns. Default = 'float64'
+        nocol : None or str
+            Action to take if a col in ``cols`` is not in the dataframe to 
+            transform.  Valid values:
+            * None - ignore cols in ``cols`` which are not in dataframe
+            * 'warn' - issue a warning when a column is not in dataframe
+            * 'err' - raise an error when a column is not in dataframe
         """
 
         # Check types
@@ -682,6 +755,8 @@ class TargetEncoderLOO(BaseEstimator, TransformerMixin):
                 raise TypeError('each element of cols must be a string')
         if not isinstance(dtype, str):
             raise TypeError('dtype must be a string (e.g. \'float64\'')
+        if nocol is not None and nocol not in ('warn', 'err'):
+            raise ValueError('nocol must be None, \'warn\', or \'err\'')
 
         # Store parameters
         if isinstance(cols, str):
@@ -689,6 +764,7 @@ class TargetEncoderLOO(BaseEstimator, TransformerMixin):
         else:
             self.cols = cols
         self.dtype = dtype
+        self.nocol = nocol
         
 
     def fit(self, X, y):
@@ -712,9 +788,14 @@ class TargetEncoderLOO(BaseEstimator, TransformerMixin):
             self.cols = [col for col in X if str(X[col].dtype)=='object']
 
         # Check columns are in X
-        for col in self.cols:
-            if col not in X:
-                raise ValueError('Column \''+col+'\' not in X')
+        if self.nocol == 'err':
+            for col in self.cols:
+                if col not in X:
+                    raise ValueError('Column \''+col+'\' not in X')
+        elif self.nocol == 'warn':
+            for col in self.cols:
+                if col not in X:
+                    print('Column \''+col+'\' not in X')
 
         # Encode each element of each column
         self.sum_count = dict()
