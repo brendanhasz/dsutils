@@ -765,7 +765,7 @@ class TargetEncoderLOO(BaseEstimator, TransformerMixin):
             self.cols = cols
         self.dtype = dtype
         self.nocol = nocol
-        
+
 
     def fit(self, X, y):
         """Fit leave-one-out target encoder to X and y.
@@ -801,7 +801,7 @@ class TargetEncoderLOO(BaseEstimator, TransformerMixin):
         self.sum_count = dict()
         for col in self.cols:
             self.sum_count[col] = dict()
-            uniques = X[col].unique()
+            uniques = X[col].dropna().unique()
             for unique in uniques:
                 ix = X[col]==unique
                 self.sum_count[col][unique] = (y[ix].sum(),ix.sum())
@@ -844,7 +844,10 @@ class TargetEncoderLOO(BaseEstimator, TransformerMixin):
                 vals = np.full(X.shape[0], np.nan)
                 for cat, sum_count in self.sum_count[col].items():
                     ix = X[col]==cat
-                    vals[ix] = (sum_count[0]-y[ix])/(sum_count[1]-1)
+                    if sum_count[1]<2:
+                        vals[ix] = np.nan
+                    else:
+                        vals[ix] = (sum_count[0]-y[ix])/(sum_count[1]-1)
                 Xo[col] = vals
             
         # Return encoded DataFrame

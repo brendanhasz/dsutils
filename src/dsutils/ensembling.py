@@ -119,8 +119,19 @@ class EnsembleRegressor(BaseEstimator, RegressorMixin):
 
 
     def fit_predict(self, X, y):
-        """
-        TOOD
+        """Fit the ensemble and then predict on features in X
+
+        Parameters
+        ----------
+        X : pandas DataFrame
+            Features
+        y : pandas Series
+            Target variable
+
+        Returns
+        -------
+        y_pred : pandas Series
+            Predicted target variable
         """
         return self.fit(X, y).predict(X)
 
@@ -253,7 +264,18 @@ class StackedRegressor(BaseEstimator, RegressorMixin):
 
 
     def fit_predict(self, X, y):
-        """
-        TOOD
+        """Fit the ensemble and then predict on features in X
+
+        Parameters
+        ----------
+        X : pandas DataFrame
+            Features
+        y : pandas Series
+            Target variable
+            
+        Returns
+        -------
+        y_pred : pandas Series
+            Predicted target variable
         """
         return self.fit(X, y).predict(X)
