@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import norm
 from scipy.optimize import minimize
 
+from sklearn.base import BaseEstimator
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RationalQuadratic
 from sklearn.gaussian_process.kernels import WhiteKernel
@@ -607,7 +608,7 @@ def optimize_params_cv(X, y, model, bounds,
         Independent variable values (features)
     y : pandas Series
         Dependent variable values (target)
-    model : sklearn Pipeline
+    model : sklearn Estimator
         Predictive model to optimize
     bounds : dict
         Parameter bounds.  A dict where the keys are the parameter names, and
@@ -679,7 +680,7 @@ def optimize_params_cv(X, y, model, bounds,
         raise TypeError('y must be a pandas Series')
     if X.shape[0] != y.shape[0]:
         raise ValueError('X and y must have the same number of samples')
-    if not isinstance(model, Pipeline):
+    if not isinstance(model, BaseEstimator):
         raise TypeError('model must be an sklearn Pipeline')
     if not isinstance(bounds, dict):
         raise TypeError('bounds must be a dict')
