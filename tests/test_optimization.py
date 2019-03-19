@@ -145,7 +145,7 @@ def test_optimize_params_random_1d(plot):
                            shuffle=False,
                            noise=1.0)
     df = pd.DataFrame(X, columns=['a', 'b', 'c', 'd', 'e'])
-    df['y'] = y
+    df['y'] = (y-y.mean())/y.std()
     X_train = df.loc[:N/2-1, ['a', 'b', 'c', 'd', 'e']].copy()
     y_train = df.loc[:N/2-1, 'y'].copy()
     X_test = df.loc[N/2:, ['a', 'b', 'c', 'd', 'e']].copy()
@@ -169,6 +169,10 @@ def test_optimize_params_random_1d(plot):
                         max_evals=10,
                         n_random=10,
                         metric='mse')
+
+    # Ensure opt_params is correct
+    assert isinstance(opt_params, dict)
+    assert 'regressor__alpha' in opt_params
 
     # Plot parameters and their scores
     if plot:
@@ -213,7 +217,7 @@ def test_optimize_params_random_2d(plot):
                            shuffle=False,
                            noise=1.0)
     df = pd.DataFrame(X, columns=['a', 'b', 'c', 'd', 'e'])
-    df['y'] = y
+    df['y'] = (y-y.mean())/y.std()
     X_train = df.loc[:N/2-1, ['a', 'b', 'c', 'd', 'e']].copy()
     y_train = df.loc[:N/2-1, 'y'].copy()
     X_test = df.loc[N/2:, ['a', 'b', 'c', 'd', 'e']].copy()
@@ -244,6 +248,7 @@ def test_optimize_params_random_2d(plot):
                          y_dim='regressor__l1_ratio')
         plt.xlabel('regressor__alpha')
         plt.ylabel('regressor__l1_ratio')
+        plt.title('2D random optimization')
         plt.show()
 
 
@@ -261,7 +266,7 @@ def test_optimize_params_random_int(plot):
                            shuffle=False,
                            noise=1.0)
     df = pd.DataFrame(X, columns=['a', 'b', 'c', 'd', 'e'])
-    df['y'] = y
+    df['y'] = (y-y.mean())/y.std()
     X_train = df.loc[:N/2-1, ['a', 'b', 'c', 'd', 'e']].copy()
     y_train = df.loc[:N/2-1, 'y'].copy()
     X_test = df.loc[N/2:, ['a', 'b', 'c', 'd', 'e']].copy()
@@ -290,6 +295,103 @@ def test_optimize_params_random_int(plot):
     if plot:
         gpo.plot_surface()
         plt.xlabel('pca__n_components')
-        plt.ylabel('regressor__alpha')
-        plt.title('1D Int')
+        plt.ylabel('mse')
+        plt.title('1D Int random optimization')
+        plt.show()
+
+
+
+def test_optimize_params_1d(plot):
+    #Tests evaluation.optimize_params w/ nonrandom optimization
+
+    # Make dummy regression dataset
+    N = 1000
+    X, y = make_regression(n_samples=N,
+                           n_features=5,
+                           n_informative=2,
+                           n_targets=1,
+                           random_state=12345,
+                           shuffle=False,
+                           noise=1.0)
+    df = pd.DataFrame(X, columns=['a', 'b', 'c', 'd', 'e'])
+    df['y'] = (y-y.mean())/y.std()
+    X_train = df.loc[:N/2-1, ['a', 'b', 'c', 'd', 'e']].copy()
+    y_train = df.loc[:N/2-1, 'y'].copy()
+    X_test = df.loc[N/2:, ['a', 'b', 'c', 'd', 'e']].copy()
+    y_test = df.loc[N/2:, 'y'].copy()
+
+    # Create a regression pipeline
+    model = Pipeline([
+        ('regressor', Ridge(alpha=1.0)),
+    ])
+
+    # Define bounds
+    bounds = {
+        'regressor__alpha': [0.0, 2.0, float]
+    }
+
+    # Find best parameters
+    opt_params, gpo = \
+        optimize_params(X_train, y_train, model, bounds,
+                        n_splits=3,
+                        max_time=None,
+                        max_evals=10,
+                        n_random=5,
+                        metric='mse')
+
+    # Plot parameters and their scores
+    if plot:
+        gpo.plot_surface()
+        plt.xlabel('regressor__alpha')
+        plt.ylabel('mse')
+        plt.title('GP optimization')
+        plt.show()
+
+
+
+def test_optimize_params_n_grid(plot):
+    #Tests evaluation.optimize_params w/ n_grid argument
+
+    # Make dummy regression dataset
+    N = 1000
+    X, y = make_regression(n_samples=N,
+                           n_features=5,
+                           n_informative=2,
+                           n_targets=1,
+                           random_state=12345,
+                           shuffle=False,
+                           noise=1.0)
+    df = pd.DataFrame(X, columns=['a', 'b', 'c', 'd', 'e'])
+    df['y'] = (y-y.mean())/y.std()
+    X_train = df.loc[:N/2-1, ['a', 'b', 'c', 'd', 'e']].copy()
+    y_train = df.loc[:N/2-1, 'y'].copy()
+    X_test = df.loc[N/2:, ['a', 'b', 'c', 'd', 'e']].copy()
+    y_test = df.loc[N/2:, 'y'].copy()
+
+    # Create a regression pipeline
+    model = Pipeline([
+        ('regressor', Ridge(alpha=1.0)),
+    ])
+
+    # Define bounds
+    bounds = {
+        'regressor__alpha': [0.0, 2.0, float]
+    }
+
+    # Find best parameters
+    opt_params, gpo = \
+        optimize_params(X_train, y_train, model, bounds,
+                        n_splits=3,
+                        max_time=None,
+                        max_evals=5,
+                        n_grid=5,
+                        n_random=0,
+                        metric='mse')
+
+    # Plot parameters and their scores
+    if plot:
+        gpo.plot_surface()
+        plt.xlabel('regressor__alpha')
+        plt.ylabel('mse')
+        plt.title('n_grid')
         plt.show()

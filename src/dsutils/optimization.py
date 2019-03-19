@@ -15,6 +15,7 @@ from scipy.stats import norm
 from scipy.optimize import minimize
 
 from sklearn.base import BaseEstimator
+from sklearn.model_selection import KFold
 from sklearn.metrics import make_scorer, r2_score, mean_squared_error
 from sklearn.metrics import mean_absolute_error, accuracy_score, roc_auc_score
 from sklearn.model_selection import cross_val_score
@@ -23,7 +24,9 @@ from sklearn.gaussian_process.kernels import RationalQuadratic
 from sklearn.gaussian_process.kernels import WhiteKernel
 from sklearn.gaussian_process.kernels import Kernel
 
+
 from .plotting import plot_err
+from .utils import linspacen
 
 
 
@@ -38,7 +41,7 @@ class GaussianProcessOptimizer():
                  param_names=None,
                  minimize=True,
                  kernel=RationalQuadratic()+WhiteKernel(noise_level=1e-4),
-                 n_restarts_optimizer=5):
+                 n_restarts_optimizer=10):
         """Gaussian process-based optimizer
 
         Parameters
@@ -605,12 +608,15 @@ class GaussianProcessOptimizer():
 
 
 def optimize_params(X, y, model, bounds,
-                       n_splits=3,
-                       max_time=None,
-                       max_evals=50,
-                       n_random=5,
-                       n_jobs=1,
-                       metric='mse'):
+                    n_splits=3,
+                    shuffle=True,
+                    max_time=None,
+                    max_evals=50,
+                    n_grid=0,
+                    n_random=5,
+                    n_jobs=1,
+                    metric='mse',
+                    minimize=None):
     """Optimize model parameters using cross-fold validation.
 
     Parameters
@@ -630,10 +636,15 @@ def optimize_params(X, y, model, bounds,
         float.
     n_splits : int
         Number of cross-validation folds.
+    shuffle : bool
+        Whether to shuffle samples before splitting into CV folds.
     max_time : None or float
         Give up after this many seconds
     max_evals : int
         Max number of cross-validation evaluations to perform.
+    n_grid : int
+        Number of evaluations to use grid-based parameter combinations before
+        switching to random or Bayesian global optimization.
     n_random : int
         Number of evaluations to use random parameter combinations before
         switching to Bayesian global optimization.
@@ -647,6 +658,11 @@ def optimize_params(X, y, model, bounds,
         * 'mae' - mean absolute error (minimize)
         * 'accuracy' or 'acc' - accuracy (maximize)
         * 'auc' - area under the ROC curve (maximize)
+
+    minimize : bool
+        Whether to minimize ``metric``.  
+        If true, minimize; if false, maximize; if None, use the default for
+        the metric.
 
     Returns
     -------
@@ -699,6 +715,8 @@ def optimize_params(X, y, model, bounds,
         raise TypeError('n_splits must be an integer')
     if n_splits < 1:
         raise ValueError('n_splits must be one or greater')
+    if not isinstance(shuffle, bool):
+        raise TypeError('shuffle must be True or False')
     if max_time is not None and not isinstance(max_time, (float, int)):
         raise TypeError('max_time must be None or a float')
     if max_time is not None and max_time < 0:
@@ -707,6 +725,10 @@ def optimize_params(X, y, model, bounds,
         raise TypeError('max_evals must be an int')
     if max_evals < 1:
         raise ValueError('max_evals must be positive')
+    if not isinstance(n_grid, int):
+        raise TypeError('n_grid must be an int')
+    if n_grid < 0:
+        raise ValueError('n_grid must be non-negative')
     if not isinstance(n_random, int):
         raise TypeError('n_random must be an int')
     if n_random < 0:
@@ -715,6 +737,8 @@ def optimize_params(X, y, model, bounds,
         raise TypeError('n_jobs must be an int')
     if n_jobs < 1:
         raise ValueError('n_jobs must be positive')
+    if minimize is not None and not isinstance(minimize, bool):
+        raise TypeError('minimize must be None or a bool')
 
     # Create scorer
     if metric == 'r2':
@@ -728,15 +752,16 @@ def optimize_params(X, y, model, bounds,
     elif metric == 'auc':
         scorer = make_scorer(roc_auc_score)
     elif hasattr(metric, '__call__'):
-        scorer = metric
+        scorer = make_scorer(metric)
     else:
         raise ValueError('metric must be a metric string or a callable')
 
-    # Flip the score depending on the metric, such that lower is better
-    if metric == 'mse' or metric == 'mae':
-        minimize = True
-    else:
-        minimize = False
+    # Whether to minimize the score or maximize it
+    if minimize is None:
+        if metric == 'mse' or metric == 'mae':
+            minimize = True
+        else:
+            minimize = False
 
     # Collect info about parameters to optimize
     Np = len(bounds) #number of parameters
@@ -751,6 +776,13 @@ def optimize_params(X, y, model, bounds,
     gpo = GaussianProcessOptimizer(lb, ub, dtypes, step_params,
                                    minimize=minimize)
 
+    # Create a cross-fold generator
+    kf = KFold(n_splits=n_splits, shuffle=shuffle)
+
+    # Create parameter grid
+    if n_grid > 0:
+        grid = linspacen(lb, ub, n_grid)
+
     # Search for optimal parameters
     start_time = time.time()
     for i in range(max_evals):
@@ -760,7 +792,9 @@ def optimize_params(X, y, model, bounds,
             break
 
         # Get next set of parameters to try
-        if i < n_random:
+        if i < n_grid:
+            new_params = grid[i,:]
+        elif i < n_random+n_grid:
             new_params = gpo.random_point()
         else:
             new_params = gpo.next_point()
@@ -771,12 +805,12 @@ def optimize_params(X, y, model, bounds,
             model.named_steps[steps[iP]].set_params(**tP)
 
         # Compute and store cross-validated metric
-        scores = cross_val_score(model, X, y, cv=n_splits,
+        scores = cross_val_score(model, X, y, cv=kf,
                                  scoring=scorer, n_jobs=n_jobs)
 
         # Store parameters and scores
         gpo.add_point(new_params, scores)
 
-    # Return optimal parameters, all evaluated parameters, and scores
+    # Return optimal parameters and the optimizer object used
     opt_params = gpo.best_point(get_dict=True)
     return opt_params, gpo
