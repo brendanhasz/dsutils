@@ -17,7 +17,8 @@ from sklearn.metrics import median_absolute_error, jaccard_similarity_score
 from sklearn.decomposition import PCA
 
 from dsutils.optimization import GaussianProcessOptimizer
-from dsutils.optimization import optimize_params_cv
+from dsutils.optimization import optimize_params
+
 
 
 def test_GaussianProcessOptimizer_1d(plot):
@@ -99,11 +100,12 @@ def test_GaussianProcessOptimizer_1d(plot):
         plt.show()
 
 
+
 def test_GaussianProcessOptimizer_int(plot):
     """Tests optimization.GaussianProcessOptimizer"""
 
     # Create the optimizer object
-    gpo = GaussianProcessOptimizer(lb=[0], ub=[10], 
+    gpo = GaussianProcessOptimizer(lb=[0], ub=[20], 
                                    dtype=[int],
                                    param_names='x')
 
@@ -114,20 +116,24 @@ def test_GaussianProcessOptimizer_int(plot):
         gpo.add_point([int(xx[iP])], [yy[iP]])
 
     # Show the loss surface
-    #gpo.plot_surface('x')
-    #if plot:
-    #    plt.show()
+    gpo.plot_surface('x')
+    if plot:
+        plt.show()
 
     # Draw a random point
-    #new_point = gpo.random_point()
-    #assert isinstance(new_point, list)
-    #assert len(new_point) == 1
-    #assert isinstance(new_point[0], float)
+    new_point = gpo.random_point()
+    assert isinstance(new_point, list)
+    assert len(new_point) == 1
+    assert isinstance(new_point[0], int)
 
 
-"""
-def test_optimize_cv_random_1(plot):
-    #Tests evaluation.optimize_cv w/ regression problems
+
+# TODO: test_GaussianProcessOptimizer_2d
+
+
+
+def test_optimize_params_random_1d(plot):
+    #Tests evaluation.optimize_params w/ regression problems
 
     # Make dummy regression dataset
     N = 1000
@@ -156,44 +162,45 @@ def test_optimize_cv_random_1(plot):
     }
 
     # Find best parameters
-    opt_params, params, scores = optimize_cv(X_train, y_train, model, bounds,
-                                             n_splits=3,
-                                             max_time=None,
-                                             max_evals=10,
-                                             n_random=10,
-                                             metric='mse')
+    opt_params, gpo = \
+        optimize_params(X_train, y_train, model, bounds,
+                        n_splits=3,
+                        max_time=None,
+                        max_evals=10,
+                        n_random=10,
+                        metric='mse')
 
     # Plot parameters and their scores
     if plot:
-        plt.plot(params['regressor__alpha'], scores, '.')
+        gpo.plot_surface()
         plt.xlabel('regressor__alpha')
         plt.ylabel('mse')
         plt.show()
 
     # Check n_jobs arg works
-    opt_params, params, scores = optimize_cv(X_train, y_train, model, bounds,
-                                             n_splits=3,
-                                             max_time=None,
-                                             max_evals=10,
-                                             n_random=10,
-                                             metric='mse',
-                                             n_jobs=2)
+    opt_params, gpo = \
+        optimize_params(X_train, y_train, model, bounds,
+                        n_splits=3,
+                        max_time=None,
+                        max_evals=10,
+                        n_random=10,
+                        metric='mse',
+                        n_jobs=2)
 
     # Check timeout works
     start_time = time.time()
-    opt_params, params, scores = optimize_cv(X_train, y_train, model, bounds,
-                                             n_splits=3,
-                                             max_time=0.2,
-                                             max_evals=int(1e12),
-                                             n_random=int(1e12),
-                                             metric='mse')
-    assert time.time()-start_time < 1.0
+    opt_params, gpo = \
+        optimize_params(X_train, y_train, model, bounds,
+                        n_splits=3,
+                        max_time=0.2,
+                        max_evals=int(1e12),
+                        n_random=int(1e12),
+                        metric='mse')
+    assert time.time()-start_time < 3.0
 
 
 
-
-
-def test_optimize_cv_random_2(plot):
+def test_optimize_params_random_2d(plot):
     #Tests evaluation.optimize_cv w/ 2 parameters
 
     # Make dummy regression dataset
@@ -224,26 +231,25 @@ def test_optimize_cv_random_2(plot):
     }
 
     # Find best parameters
-    opt_params, params, scores = optimize_cv(X_train, y_train, model, bounds,
-                                             n_splits=3,
-                                             max_time=None,
-                                             max_evals=10,
-                                             n_random=10,
-                                             metric='mse')
+    opt_params, gpo = optimize_params(X_train, y_train, model, bounds,
+                                      n_splits=3,
+                                      max_time=None,
+                                      max_evals=10,
+                                      n_random=10,
+                                      metric='mse')
 
     # Plot parameters and their scores
     if plot:
-        plt.scatter(params['regressor__alpha'],
-                    params['regressor__l1_ratio'],
-                    c=scores, alpha=0.7)
+        gpo.plot_surface(x_dim='regressor__alpha',
+                         y_dim='regressor__l1_ratio')
         plt.xlabel('regressor__alpha')
         plt.ylabel('regressor__l1_ratio')
         plt.show()
 
 
 
-def test_optimize_cv_random_int(plot):
-    #Tests evaluation.optimize_cv w/ int parameter types
+def test_optimize_params_random_int(plot):
+    #Tests evaluation.optimize_params w/ int parameter types
 
     # Make dummy regression dataset
     N = 1000
@@ -270,23 +276,20 @@ def test_optimize_cv_random_int(plot):
     # Define bounds
     bounds = {
         'pca__n_components': [1, 5, int],
-        'regressor__alpha': [0.0, 4.0, float]
     }
 
     # Find best parameters
-    opt_params, params, scores = optimize_cv(X_train, y_train, model, bounds,
-                                             n_splits=3,
-                                             max_time=None,
-                                             max_evals=10,
-                                             n_random=10,
-                                             metric='mse')
+    opt_params, gpo = optimize_params(X_train, y_train, model, bounds,
+                                      n_splits=3,
+                                      max_time=None,
+                                      max_evals=10,
+                                      n_random=10,
+                                      metric='mse')
 
     # Plot parameters and their scores
     if plot:
-        plt.scatter(params['pca__n_components'],
-                    params['regressor__alpha'],
-                    c=scores, alpha=0.7)
+        gpo.plot_surface()
         plt.xlabel('pca__n_components')
         plt.ylabel('regressor__alpha')
+        plt.title('1D Int')
         plt.show()
-"""

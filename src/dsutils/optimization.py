@@ -1,11 +1,12 @@
 """Optimization
 
 * :class:`.GaussianProcessOptimizer`
-* :func:`.optimize_params_cv`
+* :func:`.optimize_params`
 
 """
 
 
+import time
 
 import numpy as np
 import pandas as pd
@@ -14,6 +15,9 @@ from scipy.stats import norm
 from scipy.optimize import minimize
 
 from sklearn.base import BaseEstimator
+from sklearn.metrics import make_scorer, r2_score, mean_squared_error
+from sklearn.metrics import mean_absolute_error, accuracy_score, roc_auc_score
+from sklearn.model_selection import cross_val_score
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RationalQuadratic
 from sklearn.gaussian_process.kernels import WhiteKernel
@@ -218,8 +222,10 @@ class GaussianProcessOptimizer():
         # Check inputs
         if not all(isinstance(e, (int, float)) for e in x):
             raise TypeError('x must be a list of ints or floats')
-        if not isinstance(y, (float, list)):
-            raise TypeError('y must be a float or a list')
+        if not isinstance(y, (float, list, np.ndarray)):
+            raise TypeError('y must be a float, list, or ndarray')
+        if isinstance(y, np.ndarray):
+            y = y.tolist()
         if isinstance(y, list):
             if not all(isinstance(e, float) for e in y):
                 raise TypeError('y must be a list of floats')
@@ -489,22 +495,31 @@ class GaussianProcessOptimizer():
 
         # 2D plot
         else:
-            pass
-            # TODO
-            """
-            # Predict y as a fn of x (all other params being 0)
-            x_pred = np.zeros((res*res, self.num_dims))
+
+            # Predict y as a fn of x (other params being @ middle of bounds)
+            x_pred = np.ones((res*res, self.num_dims))
+            x_pred *= (np.array(self.bounds)
+                       .mean(axis=1)
+                       .reshape(-1, self.num_dims))
             xp, yp = np.meshgrid(
                 np.linspace(self.lb[x_dim], self.ub[x_dim], res),
                 np.linspace(self.lb[y_dim], self.ub[y_dim], res))
-            x_pred[x_dim] = xp
-            x_pred[y_dim] = yp
-            y_pred = self._pred_gp(x_pred, return_std=True)
+            x_pred[:,x_dim] = xp.reshape(-1)
+            x_pred[:,y_dim] = yp.reshape(-1)
+            y_pred = self._pred_gp(x_pred, return_std=False)
 
             # Plot the Gaussian process
             plt.imshow(y_pred.reshape((res, res)), aspect='auto', 
-                       interpolation='bicubic', origin='lower')
-            """
+                       interpolation='bicubic', origin='lower',
+                       extent=(self.lb[x_dim], self.ub[x_dim], 
+                               self.lb[y_dim], self.ub[y_dim]))
+            plt.colorbar()
+
+            # Plot the sampled points
+            for iP in range(len(self.x) if step is None else step):
+                plt.plot(self.x[iP][x_dim], self.x[iP][y_dim], 
+                         '.', color='0.6')
+
 
     def plot_ei_surface(self, x_dim=None, y_dim=None, res=100, step=None,
                         refit=True):
@@ -571,10 +586,6 @@ class GaussianProcessOptimizer():
             plt.xlabel(self.param_names[x_dim])
             plt.ylabel('Expected Improvement')
 
-            # Plot the sampled points
-            #for iP in range(len(self.x) if step is None else step):
-            #    plt.plot(self.x[iP][x_dim], self.y[iP], '.', color='0.6')
-
         # 2D plot
         else:
             pass
@@ -593,7 +604,7 @@ class GaussianProcessOptimizer():
 
 
 
-def optimize_params_cv(X, y, model, bounds,
+def optimize_params(X, y, model, bounds,
                        n_splits=3,
                        max_time=None,
                        max_evals=50,
@@ -663,7 +674,7 @@ def optimize_params_cv(X, y, model, bounds,
         'regressor__alpha': [0, 10, float]
     }
 
-    opt_params, gpo = optimize_cv(X, y, model, bounds)
+    opt_params, gpo = optimize_params(X, y, model, bounds)
 
     opt_params['pca']['n_components'] #optimal # components
     opt_params['regressor']['alpha'] #optimal alpha value
@@ -688,7 +699,7 @@ def optimize_params_cv(X, y, model, bounds,
         raise TypeError('n_splits must be an integer')
     if n_splits < 1:
         raise ValueError('n_splits must be one or greater')
-    if max_time is not None and not isinstance(max_time, float):
+    if max_time is not None and not isinstance(max_time, (float, int)):
         raise TypeError('max_time must be None or a float')
     if max_time is not None and max_time < 0:
         raise ValueError('max_time must be positive')
@@ -756,16 +767,16 @@ def optimize_params_cv(X, y, model, bounds,
 
         # Modify model to use new parameters
         for iP in range(Np):
-            model.named_steps[steps[iP]].set_params({params[iP],
-                                                     new_params[iP]})
+            tP = {params[iP]: new_params[iP]}
+            model.named_steps[steps[iP]].set_params(**tP)
 
         # Compute and store cross-validated metric
         scores = cross_val_score(model, X, y, cv=n_splits,
                                  scoring=scorer, n_jobs=n_jobs)
 
         # Store parameters and scores
-        gpo.add_points(new_params, scores)
+        gpo.add_point(new_params, scores)
 
     # Return optimal parameters, all evaluated parameters, and scores
-    opt_params = gpo.best_point(dict=True)
+    opt_params = gpo.best_point(get_dict=True)
     return opt_params, gpo
