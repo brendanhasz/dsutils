@@ -1,4 +1,6 @@
+""" Fixtures and options for tests
 
+"""
 
 import pytest
 

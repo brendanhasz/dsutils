@@ -395,3 +395,56 @@ def test_optimize_params_n_grid(plot):
         plt.ylabel('mse')
         plt.title('n_grid')
         plt.show()
+
+
+def test_optimize_params_metric(plot):
+    #Tests evaluation.optimize_params w/ a custom metric
+
+    # Make dummy regression dataset
+    N = 1000
+    X, y = make_regression(n_samples=N,
+                           n_features=5,
+                           n_informative=2,
+                           n_targets=1,
+                           random_state=12345,
+                           shuffle=False,
+                           noise=1.0)
+    df = pd.DataFrame(X, columns=['a', 'b', 'c', 'd', 'e'])
+    df['y'] = (y-y.mean())/y.std()
+    X_train = df.loc[:N/2-1, ['a', 'b', 'c', 'd', 'e']].copy()
+    y_train = df.loc[:N/2-1, 'y'].copy()
+    X_test = df.loc[N/2:, ['a', 'b', 'c', 'd', 'e']].copy()
+    y_test = df.loc[N/2:, 'y'].copy()
+
+    # Create a regression pipeline
+    model = Pipeline([
+        ('regressor', Ridge(alpha=1.0)),
+    ])
+
+    # Define bounds
+    bounds = {
+        'regressor__alpha': [0.0, 2.0, float]
+    }
+
+    # Custom metric
+    def root_mean_squared_error(y_true, y_pred):
+        """Root mean squared error regression loss"""
+        return np.sqrt(np.mean(np.square(y_true-y_pred)))
+
+    # Find best parameters
+    opt_params, gpo = \
+        optimize_params(X_train, y_train, model, bounds,
+                        n_splits=3,
+                        max_time=None,
+                        max_evals=10,
+                        n_random=5,
+                        metric=root_mean_squared_error,
+                        minimize=True)
+
+    # Plot parameters and their scores
+    if plot:
+        gpo.plot_surface()
+        plt.xlabel('regressor__alpha')
+        plt.ylabel('mse')
+        plt.title('Custom metric (RMSE)')
+        plt.show()
