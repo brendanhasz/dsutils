@@ -8,10 +8,12 @@
 import numpy as np
 import pandas as pd
 
+from sklearn.base import clone
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_val_predict
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.model_selection import KFold
+from sklearn.exceptions import NotFittedError
 
 from dsutils.models import InterpolatingPredictor
 
@@ -273,6 +275,168 @@ class StackedRegressor(BaseEstimator, RegressorMixin):
         y : pandas Series
             Target variable
             
+        Returns
+        -------
+        y_pred : pandas Series
+            Predicted target variable
+        """
+        return self.fit(X, y).predict(X)
+
+
+
+class BaggedRegressor(BaseEstimator, RegressorMixin):
+    
+    def __init__(self, base_learner, 
+                 preprocessing=None, 
+                 n_estimators=10, 
+                 max_samples=1.0, 
+                 max_features=1.0,
+                 replace=True,
+                 replace_features=False):
+        """Estimator which applies the same learner to samples of the data
+
+        Parameters
+        ----------
+        base_learner : sklearn Estimator
+            Base estimator to use.
+        preprocessing : sklearn Estimator
+            Preprocessing pipline to apply to the data before using model
+            to predict.  This saves time for heavy preprocessing workloads
+            because the preprocessing does not have to be repeated for each
+            estimator.
+        n_estimators : int
+            Number of instances of the base learner to train
+        max_samples : float between 0 and 1
+            Proportion of the samples to use for training each instance
+        max_features : float between 0 and 1
+            Proportion of the fetaures to use for training each instance
+        replace : bool
+            Whether to sample samples with replacement
+        replace_features : bool
+            Whether to sample the features with replacement
+        """
+        
+        # Check inputs
+        if not isinstance(base_learner, BaseEstimator):
+            raise TypeError('base_learner must be an sklearn estimator')
+        if preprocessing is not None and not isinstance(preprocessing, 
+                                                        BaseEstimator):
+            raise TypeError('preprocessing must be an sklearn estimator')
+        if not isinstance(n_estimators, int):
+            raise TypeError('n_estimators must be an int')
+        if n_estimators < 1: 
+            raise ValueError('n_estimators must be positive')
+        if not isinstance(max_samples, float):
+            raise TypeError('max_samples must be a float')
+        if max_samples < 0 or max_samples > 1: 
+            raise ValueError('max_samples must be between 0 and 1')
+        if not isinstance(max_features, float):
+            raise TypeError('max_features must be a float')
+        if max_features < 0 or max_features > 1: 
+            raise ValueError('max_features must be between 0 and 1')
+        if not isinstance(replace, bool):
+            raise TypeError('replace must be True or False')
+        if not isinstance(replace_features, bool):
+            raise TypeError('replace_features must be True or False')
+            
+        # Store parameters
+        self.base_learner = base_learner
+        self.preprocessing = preprocessing
+        self.n_estimators = n_estimators
+        self.max_samples = max_samples
+        self.max_features = max_features
+        self.replace = replace
+        self.replace_features = replace_features
+        self.fit_learners = None
+        self.features_ix = None        
+
+
+    def fit(self, X, y):
+        """Fit the base learners on samples of the data
+
+        Parameters
+        ----------
+        X : pandas DataFrame
+            Features
+        y : pandas Series
+            Target variable
+
+        Returns
+        -------
+        self
+            The fit estimator
+        """
+
+        # Preprocess the data
+        if self.preprocessing is None:
+            Xp = X
+        else:
+            self.preprocessing = self.preprocessing.fit(X, y)
+            Xp = self.preprocessing.transform(X)
+
+        # Fit each base learner to the data
+        Ns = X.shape[0] #number of samples
+        Nf = X.shape[1] #number of features
+        self.fit_learners = []
+        self.features_ix = []        
+        for i in range(self.n_estimators):
+            s_ix = np.random.choice(Ns, size=int(Ns*self.max_samples),
+                                    replace=self.replace)
+            f_ix = np.random.choice(Nf, size=int(Nf*self.max_features),
+                                    replace=self.replace_features)
+            Xs = Xp.iloc[s_ix, f_ix]
+            ys = y.iloc[s_ix]
+            self.fit_learners.append(clone(self.base_learner).fit(Xs, ys))
+            self.features_ix.append(f_ix)
+            
+        # Return the fit object
+        return self
+                
+        
+    def predict(self, X):
+        """Predict using the average of the base learners
+
+        Parameters
+        ----------
+        X : pandas DataFrame
+            Features
+
+        Returns
+        -------
+        y_pred : pandas Series
+            Predicted target variable
+        """
+
+        # Ensure model has been fit
+        if self.fit_learners is None:
+            raise NotFittedError('Model has not been fit')
+
+        # Preprocess the data
+        if self.preprocessing is None:
+            Xp = X
+        else:
+            Xp = self.preprocessing.transform(X)
+
+        # Compute predictions for each base learner
+        preds = pd.DataFrame(index=X.index)
+        for i, learner in enumerate(self.fit_learners):
+            Xs = Xp.iloc[:, self.features_ix[i]]
+            preds[str(i)] = learner.predict(Xs)
+        
+        # Return the average predictions
+        return preds.mean(axis=1)
+
+
+    def fit_predict(self, X, y):
+        """Fit the base learners and then predict on features in X
+
+        Parameters
+        ----------
+        X : pandas DataFrame
+            Features
+        y : pandas Series
+            Target variable
+
         Returns
         -------
         y_pred : pandas Series
