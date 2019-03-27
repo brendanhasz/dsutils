@@ -25,6 +25,10 @@ def meshgridn(E):
         The grid vertexes.  2D array of size (N_grid_points, dimensions)
     """
 
+    # Check inputs
+    if not isinstance(E, (list, np.ndarray)):
+        raise TypeError('E must be a list of grid edges in each dim')
+
     # Base case: 1D
     if len(E) == 1:
         return E[0].reshape(-1, 1)

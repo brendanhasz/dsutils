@@ -169,9 +169,6 @@ class GaussianProcessOptimizer():
         for iD in range(self.num_dims):
             x[:, iD] = (x[:, iD] - self.lb[iD]) / self.db[iD]
 
-        # Add jitter to x
-        x += 1e-5*np.random.standard_normal(x.shape)
-
         # Fit the Gaussian process
         self.gp = self.gp.fit(x, y)
 
@@ -187,9 +184,6 @@ class GaussianProcessOptimizer():
         # Normalize x
         for iD in range(self.num_dims):
             x[:, iD] = (x[:, iD] - self.lb[iD]) / self.db[iD]
-
-        # Add jitter to x
-        x = x + 1e-5*np.random.standard_normal(x.shape)
 
         # Predict y
         y, y_std = self.gp.predict(x, return_std=True)
@@ -370,6 +364,10 @@ class GaussianProcessOptimizer():
             or a dict if dict=True
         """
 
+        # Return best point which was actually sampled
+        if not expected:
+            return self.x[self.y.index(min(self.y))]
+
         # Fit the Gaussian process to samples so far
         self._fit_gp()
 
@@ -391,7 +389,7 @@ class GaussianProcessOptimizer():
                 best_score = res.fun
                 x = res.x
 
-        # Return x with highest expected improvement
+        # Return x with highest expected value
         x = self._ensure_types(x)
         if get_dict: 
             x = self._make_dict(x)
@@ -762,6 +760,15 @@ def optimize_params(X, y, model, bounds,
             minimize = True
         else:
             minimize = False
+
+    # Check lengths of bounds
+    for param, bound in bounds.items():
+        if not isinstance(bound, (tuple, list)):
+            raise TypeError('bounds must be dict of tuples')
+        if len(bound)<2:
+            raise ValueError('bounds tuples must have at least 2 elements')
+        if len(bound)<3: #assume float
+            bound.append(float)
 
     # Collect info about parameters to optimize
     Np = len(bounds) #number of parameters
