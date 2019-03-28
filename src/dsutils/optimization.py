@@ -372,7 +372,7 @@ class GaussianProcessOptimizer():
         self._fit_gp()
 
         # Find x with greatest expected score
-        flip = np.power(-1, self.minimize)
+        flip = -np.power(-1, self.minimize)
         score_func = lambda x: flip*self._pred_gp(x.reshape(-1,self.num_dims))
         x = self.random_point()
         best_score = np.inf
