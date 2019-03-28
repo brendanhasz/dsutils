@@ -526,11 +526,12 @@ class TargetEncoder(BaseEstimator, TransformerMixin):
         # Encode each element of each column
         self.maps = dict()
         for col in self.cols:
-            tmap = dict()
-            uniques = X[col].unique()
-            for unique in uniques:
-                tmap[unique] = y[X[col]==unique].mean()
-            self.maps[col] = tmap
+            if col in X:
+                tmap = dict()
+                uniques = X[col].unique()
+                for unique in uniques:
+                    tmap[unique] = y[X[col]==unique].mean()
+                self.maps[col] = tmap
             
         # Return fit object
         return self
