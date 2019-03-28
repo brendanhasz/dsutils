@@ -170,6 +170,10 @@ class StackedRegressor(BaseEstimator, RegressorMixin):
         if (preprocessing is not None and
                 not isinstance(preprocessing, BaseEstimator)):
             raise TypeError('preprocessing must be an sklearn estimator')
+        if not isinstance(n_jobs, int):
+            raise TypeError('n_jobs must be an int')
+        if n_jobs is not None and (n_jobs < -1 or n_jobs == 0):
+            raise ValueError('n_jobs must be None or >0 or -1')
 
         # Store learners as dict
         self.base_learners = dict()
@@ -191,6 +195,7 @@ class StackedRegressor(BaseEstimator, RegressorMixin):
         self.n_splits = n_splits
         self.shuffle = shuffle
         self.preprocessing = preprocessing
+        self.n_jobs = n_jobs
         
         
     def fit(self, X, y):
@@ -220,7 +225,8 @@ class StackedRegressor(BaseEstimator, RegressorMixin):
         preds = pd.DataFrame(index=X.index)
         kf = KFold(n_splits=self.n_splits, shuffle=self.shuffle)
         for name, learner in self.base_learners.items():
-            preds[name] = cross_val_predict(learner, Xp, y, cv=kf)
+            preds[name] = cross_val_predict(learner, Xp, y, 
+                                            cv=kf, n_jobs=self.n_jobs)
             
         # Fit base learners to all samples
         for _, learner in self.base_learners.items():
