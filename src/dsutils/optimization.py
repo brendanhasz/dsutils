@@ -612,7 +612,7 @@ def optimize_params(X, y, model, bounds,
                     max_evals=50,
                     n_grid=0,
                     n_random=5,
-                    n_jobs=1,
+                    n_jobs=-1,
                     metric='mse',
                     minimize=None):
     """Optimize model parameters using cross-fold validation.
@@ -647,7 +647,8 @@ def optimize_params(X, y, model, bounds,
         Number of evaluations to use random parameter combinations before
         switching to Bayesian global optimization.
     n_jobs : int
-        Number of parallel jobs to run (for cross-validation).    
+        Number of parallel jobs to run (for cross-validation). 
+        Default is to use all available processors.   
     metric : str or sklearn scorer
         What metric to use for evaluation.  One of:
 
