@@ -734,8 +734,6 @@ def optimize_params(X, y, model, bounds,
         raise ValueError('n_random must be non-negative')
     if not isinstance(n_jobs, int):
         raise TypeError('n_jobs must be an int')
-    if n_jobs < 1:
-        raise ValueError('n_jobs must be positive')
     if minimize is not None and not isinstance(minimize, bool):
         raise TypeError('minimize must be None or a bool')
 
