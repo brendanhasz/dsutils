@@ -142,7 +142,7 @@ class EnsembleRegressor(BaseEstimator, RegressorMixin):
 class StackedRegressor(BaseEstimator, RegressorMixin):
     
     def __init__(self, base_learners, meta_learner=InterpolatingPredictor(),
-                 n_splits=3, shuffle=True, preprocessing=None):
+                 n_splits=3, shuffle=True, preprocessing=None, n_jobs=-1):
         """Uses a meta-estimator to predict from base estimators predictions
 
         Parameters

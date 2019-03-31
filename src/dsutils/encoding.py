@@ -233,10 +233,8 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
         # Create the map from objects to integers for each column
         self.maps = dict()
         for col in self.cols:
-            self.maps[col] = dict(zip(
-                X[col].values,
-                X[col].astype('category').cat.codes.values
-            ))
+            Xu = X[col].dropna().unique()
+            self.maps[col] = dict(zip(Xu, np.arange(len(Xu))))
                         
         # Return fit object
         return self
@@ -263,7 +261,7 @@ class LabelEncoder(BaseEstimator, TransformerMixin):
             
             # Convert to appropriate datatype
             max_val = max(tmap.values())
-            if Xo[col].isnull().any(): #nulls, so need to use float!
+            if X[col].isnull().any(): #nulls, so need to use float!
                 if max_val < 8388608:
                     dtype = 'float32'
                 else:

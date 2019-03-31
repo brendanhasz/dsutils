@@ -139,6 +139,18 @@ def test_label_encode():
     assert df.shape[1] == 3
     assert df['c'].nunique() == 2
 
+    # Should propagate nans
+    df['c'] = ['a', 'a', np.nan, 'b', 'b', 'b', 'a', 'a', 'a', 'b']
+    df = label_encode(df, cols='c')
+    assert 'a' in df
+    assert 'b' in df
+    assert 'c' in df
+    assert df.shape[0] == 10
+    assert df.shape[1] == 3
+    assert df['c'].nunique() == 2
+    assert np.isnan(df['c'][2])
+    assert not np.isnan(df['c'][1])
+
 
 
 def test_one_hot_encode():
