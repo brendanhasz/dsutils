@@ -266,7 +266,7 @@ def cross_val_metric(model, X, y, cv=3,
     # Print the metric
     if display is not None:
         print('Cross-validated %s: %0.3f +/- %0.3f'
-              % (display, scores.mean(), scores.std()))
+              % (display, metrics.mean(), metrics.std()))
         
     # Return a list of metrics for each fold
     return metrics
