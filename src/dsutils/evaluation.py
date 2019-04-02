@@ -22,6 +22,8 @@ from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import KFold
 from sklearn.pipeline import Pipeline
 
+from dsutils.metrics import root_mean_squared_error
+
 
 
 def permutation_importance(X, y, estimator, metric):
@@ -68,6 +70,8 @@ def permutation_importance(X, y, estimator, metric):
         metric_func = lambda t, p: r2_score(t, p)
     elif metric == 'mse':
         metric_func = lambda t, p: -mean_squared_error(t, p)
+    elif metric == 'rmse':
+        metric_func = lambda t, p: -root_mean_squared_error(t, p)
     elif metric == 'mae':
         metric_func = lambda t, p: -mean_absolute_error(t, p)
     elif metric == 'accuracy' or metric == 'acc':
