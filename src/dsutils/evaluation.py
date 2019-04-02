@@ -189,10 +189,10 @@ def plot_permutation_importance(importances):
 
 
 
-def cross_val_metric(model, X, y, cv=3, 
-                     metric=mean_squared_error, 
-                     train_subset=None, test_subset=None, 
-                     shuffle=True, display=None):
+def metric_cv(model, X, y, cv=3, 
+              metric=mean_squared_error, 
+              train_subset=None, test_subset=None, 
+              shuffle=True, display=None):
     """Compute a cross-validated metric for a model.
     
     Parameters
@@ -270,7 +270,7 @@ def cross_val_metric(model, X, y, cv=3,
     # Print the metric
     if display is not None:
         print('Cross-validated %s: %0.3f +/- %0.3f'
-              % (display, metrics.mean(), metrics.std()))
+              % (display, np.array(metrics).mean(), np.array(metrics).std()))
         
     # Return a list of metrics for each fold
     return metrics
