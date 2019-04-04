@@ -82,13 +82,16 @@ class InterpolatingPredictor(BaseEstimator):
 
 
 
-class SvdRegressor(BaseEstimator, RegressorMixin):
-    """Uses suprise's SVD to predict user scores of items
+class SurpriseRegressor(BaseEstimator, RegressorMixin):
+    """Uses a suprise model to predict user scores of items
     
-    TODO: docs
+    A wrapper sklearn interface for suprise models 
+    (https://github.com/NicolasHug/Surprise).
     
     Parameters
     ----------
+    model : surprise model
+        The surprise model to use (e.g. BaselineOnly, KNNBaseline, or SVD)
     user_col : int or str
         Column of X to use as user IDs.
         Default is 0.
@@ -99,19 +102,39 @@ class SvdRegressor(BaseEstimator, RegressorMixin):
         Range of the scores in y.  First element should be lower 
         bound and second element should be upper bound.
         Default is to use the minimum and maximum y values.
-    n_factors : int
-        Number of factors to use (dimensionality of the user and item embeddings).
-        Default = 100
-    n_epochs : int
-        Number of epochs to train for.
-        Default = 20
     **kwargs
-        Additional kwargs are passed to 
-        surprise.prediction_algorithms.matrix_factorization.SVD.
+        Additional kwargs are passed to the surprise model constructor.
+        
+    Examples
+    --------
     
+    To create a sklearn regressor which uses the surprise's
+    implementation of SVD:
+    
+        model = SurpriseRegressor(model=surprise.SVD,
+                                  user_col='user_id',
+                                  item_col='item_id')
+                                  
+    Pass additional kwargs to pass to the suprise model.
+    For example, to set the number of factors and the
+    number of epochs for training the SVD model,
+    
+        model = SurpriseRegressor(model=surprise.SVD,
+                                  user_col='user_id',
+                                  item_col='item_id',
+                                  n_factors=50,
+                                  n_epochs=1000)
+                                  
+    Or to set the number of neighbors for the KNN model:
+    
+        model = SurpriseRegressor(model=surprise.KNNBaseline,
+                                  user_col='user_id',
+                                  item_col='item_id',
+                                  k=50)
+                                  
     """
     
-    def __init__(self, user_col=0, item_col=1, score_range=(None, None), **kwargs):
+    def __init__(self, model=surprise.SVD, user_col=0, item_col=1, score_range=(None, None), **kwargs):
         """Create the regressor"""
         
         # Check inputs
@@ -133,11 +156,12 @@ class SvdRegressor(BaseEstimator, RegressorMixin):
         self._item_col = item_col
         self._score_range = score_range
         self._kwargs = kwargs
+        self._surprise_model = model
         self._model = None
 
 
     def fit(self, X, y):
-        """Fit the SVD model to data
+        """Fit the surprise model to data.
         
         Parameters
         ----------
@@ -145,7 +169,7 @@ class SvdRegressor(BaseEstimator, RegressorMixin):
             Table containing user IDs and item IDs.
         y : pandas Series
             Scores.
-
+            
         Returns
         -------
         self
@@ -169,24 +193,23 @@ class SvdRegressor(BaseEstimator, RegressorMixin):
         dataset = dataset.build_full_trainset()
 
         # Fit the model
-        self._model = surprise.SVD(**self._kwargs)
+        self._model = self._surprise_model(**self._kwargs)
         self._model.fit(dataset)
         return self
     
 
     def predict(self, X, y=None):
-        """Predict scores given user and item IDs
-
+        """Predict the scores using the surprise model.
+        
         Parameters
         ----------
         X : pandas DataFrame
             Table containing user IDs and item IDs.
-
+            
         Returns
         -------
         y_pred : pandas Series
-            Predicted scores.
-
+            Predicted scores.        
         """
 
         # Check if model has been fit
@@ -211,19 +234,19 @@ class SvdRegressor(BaseEstimator, RegressorMixin):
         
         
     def fit_predict(self, X, y):
-        """Fit and predict scores.
-
+        """Fit the surprise model and predict the scores.
+        
         Parameters
         ----------
         X : pandas DataFrame
             Table containing user IDs and item IDs.
         y : pandas Series
-            Scores.
-
+            True scores.
+            
         Returns
         -------
         y_pred : pandas Series
             Predicted scores.
-
         """
         return self.fit(X, y).predict(X)
+        
