@@ -145,6 +145,11 @@ class SvdRegressor(BaseEstimator, RegressorMixin):
             Table containing user IDs and item IDs.
         y : pandas Series
             Scores.
+
+        Returns
+        -------
+        self
+            The fit estimator.
         """
 
         # Create a pandas DataFrame in suprise format
@@ -170,8 +175,18 @@ class SvdRegressor(BaseEstimator, RegressorMixin):
     
 
     def predict(self, X, y=None):
-        """
-        TODO
+        """Predict scores given user and item IDs
+
+        Parameters
+        ----------
+        X : pandas DataFrame
+            Table containing user IDs and item IDs.
+
+        Returns
+        -------
+        y_pred : pandas Series
+            Predicted scores.
+
         """
 
         # Check if model has been fit
@@ -196,7 +211,19 @@ class SvdRegressor(BaseEstimator, RegressorMixin):
         
         
     def fit_predict(self, X, y):
-        """
-        TOOD
+        """Fit and predict scores.
+
+        Parameters
+        ----------
+        X : pandas DataFrame
+            Table containing user IDs and item IDs.
+        y : pandas Series
+            Scores.
+
+        Returns
+        -------
+        y_pred : pandas Series
+            Predicted scores.
+
         """
         return self.fit(X, y).predict(X)

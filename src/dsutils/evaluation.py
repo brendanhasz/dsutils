@@ -9,6 +9,8 @@
 
 
 import time
+import gc
+from multiprocessing.dummy import Pool as ThreadPool
 
 import numpy as np
 import pandas as pd
@@ -26,7 +28,7 @@ from dsutils.metrics import root_mean_squared_error
 
 
 
-def permutation_importance(X, y, estimator, metric):
+def permutation_importance(X, y, estimator, metric, n_jobs=4):
     """Compute permutation-based feature importance on validation data.
     
     Parameters
@@ -86,14 +88,22 @@ def permutation_importance(X, y, estimator, metric):
     # Baseline performance
     base_score = metric_func(y, estimator.predict(X))
 
-    # Permute each column and compute drop in metric
-    importances = pd.DataFrame(np.zeros((1,X.shape[1])), columns=X.columns)
-    for iC in X.columns:
+    # Function to multithread
+    def _permutation_importance(iC):
         tC = X[iC].copy()
         X[iC] = X[iC].sample(frac=1, replace=True).values
         shuff_score = metric_func(y, estimator.predict(X))
-        importances.loc[0,iC] = base_score - shuff_score
-        X[iC] = tC
+        X[iC] = tC.copy()
+        del tC
+        gc.collect()
+        return base_score - shuff_score
+
+    # Permute each column and compute drop in metric
+    importances = pd.DataFrame(np.zeros((1,X.shape[1])), columns=X.columns)
+    pool = ThreadPool(n_jobs)
+    imps = pool.map(_permutation_importance, list(X.columns))
+    for iC in range(len(imps)):
+        importances.iloc[0, iC] = imps[iC]
 
     # Return df with the feature importances
     return importances
@@ -101,7 +111,7 @@ def permutation_importance(X, y, estimator, metric):
 
 
 def permutation_importance_cv(X, y, estimator, metric, 
-                              n_splits=3, shuffle=True):
+                              n_splits=3, shuffle=True, n_jobs=4):
     """Compute cross-validated permutation-based feature importance.
     
     Parameters
@@ -162,7 +172,7 @@ def permutation_importance_cv(X, y, estimator, metric,
         t_est.fit(X.iloc[train_ix,:], y.iloc[train_ix])
         t_imp = permutation_importance(X.iloc[test_ix,:].copy(),
                                        y.iloc[test_ix].copy(),
-                                       t_est, metric)
+                                       t_est, metric, n_jobs=n_jobs)
         importances.loc[iF,:] = t_imp.loc[0,:]
         iF += 1
 
