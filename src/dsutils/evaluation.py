@@ -10,6 +10,7 @@
 
 import time
 import gc
+import multiprocessing
 from multiprocessing.dummy import Pool as ThreadPool
 
 import numpy as np
@@ -28,7 +29,7 @@ from dsutils.metrics import root_mean_squared_error
 
 
 
-def permutation_importance(X, y, estimator, metric, n_jobs=4):
+def permutation_importance(X, y, estimator, metric, n_jobs=None):
     """Compute permutation-based feature importance on validation data.
     
     Parameters
@@ -51,6 +52,10 @@ def permutation_importance(X, y, estimator, metric, n_jobs=4):
         * ``'accuracy'`` or ``'acc'`` - accuracy (for classifiers)
         * ``'auc'`` - area under the ROC curve (for classifiers)
 
+    n_jobs : None or int > 0
+        Number of parallel jobs to run.  Default is to use as many jobs as
+        there are CPUs.
+
     Returns
     -------
     pandas DataFrame
@@ -66,6 +71,14 @@ def permutation_importance(X, y, estimator, metric, n_jobs=4):
         raise ValueError('X and y must have the same number of samples')
     if not isinstance(estimator, BaseEstimator):
         raise TypeError('estimator must be an sklearn estimator')
+    if n_jobs is not None and not isinstance(n_jobs, int):
+        raise TypeError('n_jobs must be None or an int > 0')
+    if n_jobs is not None and n_jobs < 1:
+        raise ValueError('n_jobs must be > 0')
+
+    # Number of threads
+    if n_jobs is None:
+        n_jobs = multiprocessing.cpu_count()
 
     # Determine metric to use
     if metric == 'r2':
@@ -111,7 +124,7 @@ def permutation_importance(X, y, estimator, metric, n_jobs=4):
 
 
 def permutation_importance_cv(X, y, estimator, metric, 
-                              n_splits=3, shuffle=True, n_jobs=4):
+                              n_splits=3, shuffle=True, n_jobs=None):
     """Compute cross-validated permutation-based feature importance.
     
     Parameters
@@ -138,6 +151,10 @@ def permutation_importance_cv(X, y, estimator, metric,
         Number of cross-validation splits.  Default = 2.
     shuffle : bool
         Whether to shuffle when splitting into CV folds.  Default = True.
+    n_jobs : None or int > 0
+        Number of parallel jobs to run.  Default is to use as many jobs as
+        there are CPUs.
+
 
     Returns
     -------
@@ -161,6 +178,10 @@ def permutation_importance_cv(X, y, estimator, metric,
         raise ValueError('n_splits must be 1 or greater')
     if not isinstance(shuffle, bool):
         raise TypeError('shuffle must be True or False')
+    if n_jobs is not None and not isinstance(n_jobs, int):
+        raise TypeError('n_jobs must be None or an int > 0')
+    if n_jobs is not None and n_jobs < 1:
+        raise ValueError('n_jobs must be > 0')
 
     # Compute feature importances for each fold
     importances = pd.DataFrame(np.zeros((n_splits,X.shape[1])),
