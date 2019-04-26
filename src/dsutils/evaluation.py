@@ -211,7 +211,7 @@ def plot_permutation_importance(importances, sort_by=np.mean):
         Importance scores for each feature.  Should be of shape 
         (Nfolds,Nfeatures).
     sort_by : callable
-        Function to use to sort the values
+        Function to use to sort the values.  Default is to sort by the mean.
     """
     df = pd.melt(importances, var_name='Feature', value_name='Importance')
     dfg = (df.groupby(['Feature'])['Importance']
@@ -219,6 +219,33 @@ def plot_permutation_importance(importances, sort_by=np.mean):
            .reset_index()
            .sort_values('Importance', ascending=False))
     sns.barplot(x='Importance', y='Feature', data=df, order=dfg['Feature'])
+
+
+
+def top_k_permutation_importances(importances, k=10, sort_by=np.mean):
+    """Get list of k most important features
+
+    Parameters
+    ----------
+    importances : pandas DataFrame
+        Importance scores for each feature.  Should be of shape 
+        (Nfolds,Nfeatures).
+    k : int
+        Number of most important features to get.  Default = 10.
+    sort_by : callable
+        Function to use to sort the values.  Default is to sort by the mean.
+
+    Returns
+    -------
+    topk : list
+        List of column names for the features w/ the top k importances
+    """
+    df = pd.melt(importances, var_name='Feature', value_name='Importance')
+    dfg = (df.groupby(['Feature'])['Importance']
+           .aggregate(sort_by)
+           .reset_index()
+           .sort_values('Importance', ascending=False))
+    top100 = dfg['Feature'][:k].tolist()
 
 
 
