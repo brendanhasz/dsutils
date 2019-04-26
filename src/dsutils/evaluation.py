@@ -202,7 +202,7 @@ def permutation_importance_cv(X, y, estimator, metric,
 
 
 
-def plot_permutation_importance(importances):
+def plot_permutation_importance(importances, sort_by=np.mean):
     """Plot importance score of each feature.
 
     Parameters
@@ -210,10 +210,12 @@ def plot_permutation_importance(importances):
     importances : pandas DataFrame
         Importance scores for each feature.  Should be of shape 
         (Nfolds,Nfeatures).
+    sort_by : callable
+        Function to use to sort the values
     """
     df = pd.melt(importances, var_name='Feature', value_name='Importance')
     dfg = (df.groupby(['Feature'])['Importance']
-           .aggregate(np.median)
+           .aggregate(sort_by)
            .reset_index()
            .sort_values('Importance', ascending=False))
     sns.barplot(x='Importance', y='Feature', data=df, order=dfg['Feature'])
