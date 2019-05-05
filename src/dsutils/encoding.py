@@ -872,6 +872,187 @@ class TargetEncoderLOO(BaseEstimator, TransformerMixin):
 
 
 
+class TextMultiLabelBinarizer(BaseEstimator, TransformerMixin):
+    """Multi-label encode text data
+    
+    For each specified column, transform from a delimited list of text
+    labels to a Nlabels-length binary vector.
+
+    Parameters
+    ----------
+    cols : list of str
+        Columns to encode.  Default is to encode all columns.
+    dtype : str
+        Datatype to use for encoded columns.
+        Default = 'uint8'
+    sep : str
+        Separator character in the text data.  Default = ','
+    labels : dict
+        Labels for each column.  Dict with keys w/ column names and values
+        w/ lists of labels
+    nocol : None or str
+        Action to take if a col in ``cols`` is not in the dataframe to 
+        transform.  Valid values:
+        * None - ignore cols in ``cols`` which are not in dataframe
+        * 'warn' - issue a warning when a column is not in dataframe
+        * 'err' - raise an error when a column is not in dataframe
+    """
+    
+    def __init__(self, cols=None, dtype='uint8', nocol=None, 
+                 sep=',', labels=None):
+        """Multi-label encode text data"""
+
+        # Check types
+        if cols is not None and not isinstance(cols, (list, str)):
+            raise TypeError('cols must be None, or a list or a string')
+        if isinstance(cols, list):
+            if not all(isinstance(c, str) for c in cols):
+                raise TypeError('each element of cols must be a string')
+        if not isinstance(dtype, str):
+            raise TypeError('dtype must be a string (e.g. \'uint8\'')
+        if nocol is not None and nocol not in ('warn', 'err'):
+            raise ValueError('nocol must be None, \'warn\', or \'err\'')
+        if not isinstance(sep, str):
+            raise TypeError('sep must be a str')
+        if labels is not None:
+            if not isinstance(labels, dict):
+                raise TypeError('labels must be a dict of lists of labels')
+            for c, i in labels.items():
+                if i is not None and not isinstance(i, list):
+                    raise TypeError('labels must be a dict of lists of labels')
+                if i is not None and not all(isinstance(t, str) for t in i):
+                    raise TypeError('labels must be a dict of lists of labels')
+
+        # Store parameters
+        if isinstance(cols, str):
+            self.cols = [cols]
+        else:
+            self.cols = cols
+        self.dtype = dtype
+        self.nocol = nocol
+        self.sep = sep
+        if labels is None:
+            self.labels = dict()
+        else:
+            self.labels = labels
+
+        
+    def fit(self, X, y=None):
+        """Fit encoder to X and y.
+        
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix with columns to encode
+            
+        Returns
+        -------
+        NullEncoder
+            Returns self, the fit object.
+        """
+        
+        # Encode all columns with any null values by default
+        if self.cols is None:
+            self.cols = [c for c in X]
+
+        # Add Nones to labels
+        for c in self.cols:
+            if c not in self.labels:
+                self.labels[c] = None
+
+        # Check columns are in X
+        if self.nocol == 'err':
+            for col in self.cols:
+                if col not in X:
+                    raise ValueError('Column \''+col+'\' not in X')
+        elif self.nocol == 'warn':
+            for col in self.cols:
+                if col not in X:
+                    print('Column \''+col+'\' not in X')
+                        
+        # Return fit object
+        return self
+
+
+    def __onehot(self, series, unique_labels=None):
+        """One-hot transform multi-label data
+        
+        Parameters
+        ----------
+        series : pandas Series
+            Series containing text labels
+        unique_labels : None or list of str
+            Unique labels in the dataset.  Default is to generate list of 
+            labels from unique labels in the data.
+            
+        Returns
+        -------
+        one_hot : ndarray
+            Nsamples-by-Nclasses array of encoded data.  Each row is a 
+            sample, and each column corresponds to a label.  If a sample
+            has a given label, the value in that cell is 1, else it is 0.
+        unique_labels : list of str
+            Nclasses-length list of labels.
+        """
+        labels = [l.split(self.sep) for l in series.tolist()]
+        if unique_labels is None:
+            unique_labels = list(set(sum(labels, [])))
+        one_hot = np.zeros((series.shape[0], len(unique_labels)))
+        for i, sample in enumerate(labels):
+            for label in sample:
+                try:
+                    one_hot[i, unique_labels.index(label)] = 1
+                except:
+                    pass
+        return one_hot, unique_labels
+
+        
+    def transform(self, X, y=None):
+        """Perform the null encoding transformation.
+        
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix with columns to encode
+            
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
+        """
+
+        # Add null indicator column for each original column
+        Xo = X.copy()
+        for col in self.cols:
+            one_hot, labels = (
+                self.__onehot(X[col], unique_labels=self.labels[col]))
+            for i, label in enumerate(labels):
+                Xo[col+'_'+label] = one_hot[:, i].astype(self.dtype)
+            del Xo[col]
+
+        # Return encoded dataframe
+        return Xo
+            
+            
+    def fit_transform(self, X, y=None):
+        """Fit and transform the data with null encoding.
+        
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix with columns to encode
+        y : pandas Series of shape (n_samples,)
+            Dependent variable values.
+
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
+        """
+        return self.fit(X, y).transform(X, y)
+
+
+
 def null_encode(X, y=None, cols=None, suffix='_isnull', dtype='uint8'):
     """Null encode columns in a DataFrame.
     
@@ -1036,3 +1217,40 @@ def target_encode_loo(X, y=None, cols=None, dtype='float64'):
     """
     te = TargetEncoderLOO(cols=cols, dtype=dtype)
     return te.fit_transform(X, y)
+
+
+
+def text_multi_label_binarize(X, y=None,  cols=None, dtype='uint8', 
+                              nocol=None, sep=',', labels=None):
+    """Multi-label encode text data
+    
+    For each specified column, transform from a delimited list of text
+    labels to a Nlabels-length binary vector.
+
+    Parameters
+    ----------
+    cols : list of str
+        Columns to encode.  Default is to encode all columns.
+    dtype : str
+        Datatype to use for encoded columns.
+        Default = 'uint8'
+    sep : str
+        Separator character in the text data.  Default = ','
+    labels : dict
+        Labels for each column.  Dict with keys w/ column names and values
+        w/ sets or lists of labels
+    nocol : None or str
+        Action to take if a col in ``cols`` is not in the dataframe to 
+        transform.  Valid values:
+        * None - ignore cols in ``cols`` which are not in dataframe
+        * 'warn' - issue a warning when a column is not in dataframe
+        * 'err' - raise an error when a column is not in dataframe
+
+    Returns
+    -------
+    pandas DataFrame
+        Encoded DataFrame
+    """
+    tmlb = TextMultiLabelBinarizer(cols=cols, dtype=dtype, nocol=nocol, 
+                                   sep=sep, labels=labels)
+    return tmlb.fit_transform(X, y)

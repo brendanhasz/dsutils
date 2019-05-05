@@ -12,6 +12,7 @@ from dsutils.encoding import one_hot_encode
 from dsutils.encoding import target_encode
 from dsutils.encoding import target_encode_cv
 from dsutils.encoding import target_encode_loo
+from dsutils.encoding import text_multi_label_binarize
 from dsutils.encoding import TargetEncoder
 from dsutils.encoding import TargetEncoderCV
 
@@ -564,3 +565,84 @@ def test_target_encode_loo():
     assert 'y' not in dfo
     assert dfo.shape[0] == 10
     assert dfo.shape[1] == 2
+
+
+def test_text_multi_label_binarize():
+    """Tests encoding.text_multi_label_binarize"""
+
+    # Should multi-label encode both specified columns, and not non-specified
+    df = pd.DataFrame()
+    df['a'] = ['aa,bb', 'aa', 'bb', 'bb,cc']
+    df['b'] = ['asdf,bb_r', 'haha', 'haha,asdf', 'asdf,asdf']
+    df['c'] = np.random.randn(4)
+    df = text_multi_label_binarize(df, cols=['a', 'b'])
+    assert 'a' not in df
+    assert 'b' not in df
+    assert 'c' in df
+    assert 'a_aa' in df
+    assert 'a_bb' in df
+    assert 'a_cc' in df
+    assert 'b_asdf' in df
+    assert 'b_bb_r' in df
+    assert 'b_haha' in df
+    assert df.shape[0] == 4
+    assert df.shape[1] == 7
+    assert df.loc[0, 'a_aa'] == 1
+    assert df.loc[1, 'a_aa'] == 1
+    assert df.loc[2, 'a_aa'] == 0
+    assert df.loc[3, 'a_aa'] == 0
+
+    assert df.loc[0, 'a_bb'] == 1
+    assert df.loc[1, 'a_bb'] == 0
+    assert df.loc[2, 'a_bb'] == 1
+    assert df.loc[3, 'a_bb'] == 1
+
+    assert df.loc[0, 'a_cc'] == 0
+    assert df.loc[1, 'a_cc'] == 0
+    assert df.loc[2, 'a_cc'] == 0
+    assert df.loc[3, 'a_cc'] == 1
+
+    assert df.loc[0, 'b_asdf'] == 1
+    assert df.loc[1, 'b_asdf'] == 0
+    assert df.loc[2, 'b_asdf'] == 1
+    assert df.loc[3, 'b_asdf'] == 1
+
+    assert df.loc[0, 'b_bb_r'] == 1
+    assert df.loc[1, 'b_bb_r'] == 0
+    assert df.loc[2, 'b_bb_r'] == 0
+    assert df.loc[3, 'b_bb_r'] == 0
+
+    assert df.loc[0, 'b_haha'] == 0
+    assert df.loc[1, 'b_haha'] == 1
+    assert df.loc[2, 'b_haha'] == 1
+    assert df.loc[3, 'b_haha'] == 0
+
+    # Should only encode labels which were passed
+    df = pd.DataFrame()
+    df['b'] = ['asdf,bb_r', 'haha', 'haha,asdf', 'asdf,asdf']
+    df['c'] = np.random.randn(4)
+    labels = {'b': ['bb_r', 'haha', 'lala']}
+    df = text_multi_label_binarize(df, cols='b', labels=labels)
+    assert 'b' not in df
+    assert 'c' in df
+    assert 'b_asdf' not in df
+    assert 'b_bb_r' in df
+    assert 'b_haha' in df
+    assert 'b_lala' in df
+    assert df.shape[0] == 4
+    assert df.shape[1] == 4
+
+    assert df.loc[0, 'b_bb_r'] == 1
+    assert df.loc[1, 'b_bb_r'] == 0
+    assert df.loc[2, 'b_bb_r'] == 0
+    assert df.loc[3, 'b_bb_r'] == 0
+
+    assert df.loc[0, 'b_haha'] == 0
+    assert df.loc[1, 'b_haha'] == 1
+    assert df.loc[2, 'b_haha'] == 1
+    assert df.loc[3, 'b_haha'] == 0
+
+    assert df.loc[0, 'b_lala'] == 0
+    assert df.loc[1, 'b_lala'] == 0
+    assert df.loc[2, 'b_lala'] == 0
+    assert df.loc[3, 'b_lala'] == 0
