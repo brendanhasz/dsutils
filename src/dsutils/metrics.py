@@ -104,3 +104,46 @@ def columnwise_mut_info(y, df, res=20, q_transform=True):
     mi_df['Column'] = cols
     mi_df['Mutual Information'] = mis
     return mi_df
+
+
+
+def jaccard_similarity(set1, set2):
+    """Compute Jaccard similarity between two sets"""
+    set1 = set(set1)
+    set2 = set(set2)
+    union_len = len(set1.intersection(set2))
+    return union_len / (len(set1) + len(set2) - union_len)
+
+
+
+def jaccard_similarity_df(df, col1, col2, sep=' '):
+    """Compute Jaccard similarity between lists of sets.
+    
+    Parameters
+    ----------
+    df : pandas DataFrame
+        data
+    col1 : str
+        Column for set 1.  Each element should be a string,
+        with ``sep``-separated elements.
+    col2 : str
+        Column for set 2.
+    sep : str
+        Delimiter string to separate elements in ``col1`` and ``col2``.
+        Default = ' '
+        
+    Returns
+    -------
+    pandas Series
+        Jaccard similarity for each row in df
+    """
+    list1 = list(df[col1])
+    list2 = list(df[col2])
+    scores = []
+    for i in range(len(list1)):
+        if type(list1[i]) is float or type(list2[i]) is float:
+            scores.append(0.0)
+        else:
+            scores.append(jaccard_similarity(
+                list1[i].split(sep), list2[i].split(sep)))
+    return pd.Series(data=scores, index=df.index)
