@@ -15,16 +15,62 @@ from dsutils.metrics import jaccard_similarity_df
 
 
 
-# TODO: root_mean_squared_error
+def test_root_mean_squared_error():
+    """Tests dsutils.metrics.root_mean_squared_error"""
+
+    # Should return RMS of scalars
+    rmse = root_mean_squared_error(0, 1)
+    assert isinstance(rmse, float)
+    assert rmse == 1.0
+
+    # Should return RMS of scalars
+    a = np.array([0.0, 0.0, -2.0])
+    b = np.array([1.0, 2.0, 2.0])
+    rmse = root_mean_squared_error(a, b)
+    assert isinstance(rmse, float)
+    assert rmse == np.sqrt(7.0)
 
 
 
-# TODO: mutual_information
+def test_mutual_information():
+    """Tests dsutils.metrics.mutual_information"""
+
+    # Complete mutual information
+    a = np.array([0, 1])
+    b = np.array([0, 1])
+    mi = mutual_information(a, b)
+    assert isinstance(mi, float)
+    assert mi == np.log(2.0)
+
+    # No mutual information
+    a = np.array([0, 0, 1, 1])
+    b = np.array([0, 1, 0, 1])
+    mi = mutual_information(a, b)
+    assert isinstance(mi, float)
+    assert mi == 0.0
 
 
 
-# TODO: q_mut_info
+def test_q_mut_info():
+    """Tests dsutils.metrics.q_mut_info"""
 
+    # Highly skewed dists should show higher MI w/ transform
+    # (b/c of discretization)
+    a = np.exp(np.linspace(0, 10, 100))
+    b = np.exp(np.linspace(0, 10, 100))
+    mi = mutual_information(a, b)
+    qmi = q_mut_info(a, b)
+    assert isinstance(qmi, float)
+    assert qmi > mi
+
+    # Non-skewed dists should show no difference
+    # (b/c of discretization)
+    a = np.linspace(0, 10, 3)
+    b = np.linspace(0, 10, 3)
+    mi = mutual_information(a, b)
+    qmi = q_mut_info(a, b)
+    assert isinstance(qmi, float)
+    assert qmi == mi
 
 
 # TODO: columnwise_mut_info
