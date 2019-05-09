@@ -73,7 +73,26 @@ def test_q_mut_info():
     assert qmi == mi
 
 
-# TODO: columnwise_mut_info
+
+def test_columnwise_mut_info():
+    """Tests dsutils.metrics.q_mut_info"""
+
+    # Dummy data
+    N = 200
+    df = pd.DataFrame()
+    df['a'] = np.linspace(0, 1, N)
+    df['b'] = np.linspace(0, 1, N)
+    df['c'] = np.sin(np.linspace(0, 10, N)) + 0.2*np.random.randn(N)
+    df['d'] = np.random.randn(N)
+
+    # Should compute MI between y col and all others
+    mi_df = columnwise_mut_info('a', df)
+    assert isinstance(mi_df, pd.DataFrame)
+    assert mi_df.shape[0] == 3
+    assert mi_df.shape[1] == 2
+    mi_s = (mi_df.set_index('Column'))['Mutual Information']
+    assert mi_s['b'] > mi_s['c']
+    assert mi_s['c'] > mi_s['d']
 
 
 

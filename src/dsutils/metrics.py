@@ -8,7 +8,8 @@
 import numpy as np
 import pandas as pd
 
-from .transforms import quantile_transform
+from dsutils.transforms import quantile_transform
+from dsutils.printing import print_table
 
 
 
@@ -59,7 +60,7 @@ def q_mut_info(x, y):
 
 
 
-def columnwise_mut_info(y, df, res=20, q_transform=True):
+def columnwise_mut_info(y, df, res=20, q_transform=True, verbose=True):
     """Print the mutual information between target and other cols.
 
     Parameters
@@ -97,7 +98,8 @@ def columnwise_mut_info(y, df, res=20, q_transform=True):
         mis.append(mi)
 
     # Print the mutual information for each column
-    print_table(['Column', 'Mutual Information'], [cols, mis])
+    if verbose:
+        print_table(['Column', 'Mutual Information'], [cols, mis])
 
     # Return dataframe w/ the values
     mi_df = pd.DataFrame()
