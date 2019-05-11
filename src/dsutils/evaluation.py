@@ -245,7 +245,7 @@ def top_k_permutation_importances(importances, k=10, sort_by=np.mean):
            .aggregate(sort_by)
            .reset_index()
            .sort_values('Importance', ascending=False))
-    top100 = dfg['Feature'][:k].tolist()
+    return dfg['Feature'][:k].tolist()
 
 
 

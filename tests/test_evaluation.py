@@ -19,6 +19,7 @@ from sklearn.decomposition import PCA
 from dsutils.evaluation import permutation_importance
 from dsutils.evaluation import permutation_importance_cv
 from dsutils.evaluation import plot_permutation_importance
+from dsutils.evaluation import top_k_permutation_importances
 from dsutils.evaluation import metric_cv
 
 
@@ -161,6 +162,45 @@ def test_plot_permutation_importance(plot):
     plot_permutation_importance(imp_df)
     if plot:
         plt.show()
+
+
+
+def test_top_k_permutation_importances():
+    """Tests evaluation.top_k_permutation_importances"""
+
+    # Make dummy regression dataset
+    N = 1000
+    X, y = make_regression(n_samples=N,
+                           n_features=5,
+                           n_informative=2,
+                           n_targets=1,
+                           random_state=12345,
+                           shuffle=False)
+    df = pd.DataFrame(X, columns=['a', 'b', 'c', 'd', 'e'])
+    df['y'] = y
+    X_train = df.loc[:N/2-1, ['a', 'b', 'c', 'd', 'e']].copy()
+    y_train = df.loc[:N/2-1, 'y'].copy()
+    X_test = df.loc[N/2:, ['a', 'b', 'c', 'd', 'e']].copy()
+    y_test = df.loc[N/2:, 'y'].copy()
+
+    # Create a regression pipeline
+    reg_pipe = Pipeline([
+        ('regressor', LinearRegression()),
+    ])
+
+    # Fit on first half of samples
+    reg_pipe.fit(X_train, y_train)
+
+    # Permutation importance w/ R^2
+    imp_df = permutation_importance(X_test, y_test, reg_pipe, 'r2')
+
+    # Get top features
+    top_k = top_k_permutation_importances(imp_df, k=2)
+
+    # Ensure top are correct
+    assert len(top_k) == 2
+    assert 'a' in top_k
+    assert 'b' in top_k
 
 
 
