@@ -1053,6 +1053,159 @@ class TextMultiLabelBinarizer(BaseEstimator, TransformerMixin):
 
 
 
+class NhotEncoder(BaseEstimator, TransformerMixin):
+    """N-hot encode multilabel data.
+    
+    Replaces column(s) containing lists of categories with binary columns.
+
+    Parameters
+    ----------
+    cols : list of str
+        Columns to encode
+    sep : str
+        Separator
+    dtype : str
+        Datatype to use for encoded columns. Default = 'uint8'
+
+    Examples
+    --------
+
+    TODO
+
+    """
+    
+    def __init__(self, cols, sep=',', dtype='float32', 
+                 top_n=None, top_prc=None):
+
+        # Check types
+        if not isinstance(cols, (list, str)):
+            raise TypeError('cols must be a str or list of str')
+        if not isinstance(sep, str):
+            raise TypeError('sep must be a str')
+        if not isinstance(dtype, str):
+            raise TypeError('dtype must be a str')
+        if top_n is not None:
+            if not isinstance(top_n, int):
+                raise TypeError('top_n must be an int')
+            if top_n < 1:
+                raise TypeError('top_n must be at least 1')
+        if top_prc is not None:
+            if not isinstance(top_prc, float):
+                raise TypeError('top_prc must be a float')
+            if top_prc<0.0 or top_prc>1.0:
+                raise TypeError('top_prc must be between 0 and 1')
+
+        # Store parameters
+        if isinstance(cols, str):
+            self.cols = [cols]
+        else:
+            self.cols = cols
+        self.sep = sep
+        self.dtype = dtype
+        self.top_n = top_n
+        self.top_prc = top_prc
+        self.maps = None
+
+
+    def _get_top(self, labels):
+        """Get most frequent labels"""
+        if self.top_n is not None and self.top_n < len(labels):
+            df = pd.DataFrame([labels.keys(), labels.values()]).T
+            df.sort_values(1, ascending=False)
+            return df[1][:self.top_n].tolist()
+        elif self.top_prc is not None:
+            df = pd.DataFrame([labels.keys(), labels.values()]).T
+            df.sort_values(1, ascending=False)
+            return df[1][:int(self.top_prc*len(labels))].tolist()
+        else:
+            return list(labels.keys())
+
+        
+    def fit(self, X, y):
+        """Fit N-hot encoder to X and y
+        
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix with columns to encode
+        y : pandas Series of shape (n_samples,)
+            Dependent variable values.
+            
+        Returns
+        -------
+        NhotEncoder object
+            Returns self, the fit object.
+        """
+
+        # Check columns are in X
+        for col in self.cols:
+            if col not in X:
+                raise ValueError('Column \''+col+'\' not in X')
+
+        # Store each unique value
+        self.maps = dict()
+        for col in self.cols:
+            labels = dict()
+            for vals in X[col].tolist():
+                if isinstance(vals, str):
+                    for val in vals.split(self.sep):
+                        if val in labels:
+                            labels[val] += 1
+                        else:
+                            labels[val] = 1
+            self.maps[col] = self._get_top(labels)
+        
+        # Return fit object
+        return self
+
+        
+    def transform(self, X, y=None):
+        """Perform the one-hot encoding transformation.
+        
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix with columns to encode
+            
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
+        """
+        Xo = X.copy()
+        for col, vals in self.maps.items():
+            for val in vals:
+                new_col = col+'_'+str(val)
+                #matches = [val in e.split(self.sep) for e in Xo[col].tolist()]
+                matches = np.full(X.shape[0], np.nan)
+                for i, e in enumerate(Xo[col].tolist()):
+                    if isinstance(e, str):
+                        matches[i] = val in e.split(self.sep)
+
+                Xo[new_col] = matches.astype(self.dtype)
+            del Xo[col]
+        return Xo
+            
+            
+    def fit_transform(self, X, y=None):
+        """Fit and transform the data with one-hot encoding.
+        
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix with columns to encode
+        y : pandas Series of shape (n_samples,)
+            Dependent variable values.
+
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
+        """
+        return self.fit(X, y).transform(X, y)
+
+
+
 def null_encode(X, y=None, cols=None, suffix='_isnull', dtype='uint8'):
     """Null encode columns in a DataFrame.
     

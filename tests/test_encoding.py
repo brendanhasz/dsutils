@@ -15,6 +15,7 @@ from dsutils.encoding import target_encode_loo
 from dsutils.encoding import text_multi_label_binarize
 from dsutils.encoding import TargetEncoder
 from dsutils.encoding import TargetEncoderCV
+from dsutils.encoding import NhotEncoder
 
 
 def test_null_encode():
@@ -646,3 +647,42 @@ def test_text_multi_label_binarize():
     assert df.loc[1, 'b_lala'] == 0
     assert df.loc[2, 'b_lala'] == 0
     assert df.loc[3, 'b_lala'] == 0
+
+
+
+def test_NhotEncoder():
+    """Tests encoding.NhotEncoder"""
+
+    # Data
+    df = pd.DataFrame()
+    df['a'] = np.random.randn(6)
+    df['b'] = ['aa,bb', 'aa,cc', 'aa,aa', 'cc', 'aa,bb,cc', np.nan]
+    df['y'] = [0, 2, 4, 6, 8, 10]
+
+    # Encode
+    ne = NhotEncoder(cols='b')
+    dfo = ne.fit_transform(df)
+    assert dfo.shape[0] == 6
+    assert dfo.shape[1] == 5
+    assert 'b_aa' in dfo
+    assert 'b_bb' in dfo
+    assert 'b_cc' in dfo
+    assert 'b' not in dfo
+    assert dfo.loc[0, 'b_aa'] == 1
+    assert dfo.loc[1, 'b_aa'] == 1
+    assert dfo.loc[2, 'b_aa'] == 1
+    assert dfo.loc[3, 'b_aa'] == 0
+    assert dfo.loc[4, 'b_aa'] == 1
+    assert np.isnan(dfo.loc[5, 'b_aa'])
+    assert dfo.loc[0, 'b_bb'] == 1
+    assert dfo.loc[1, 'b_bb'] == 0
+    assert dfo.loc[2, 'b_bb'] == 0
+    assert dfo.loc[3, 'b_bb'] == 0
+    assert dfo.loc[4, 'b_bb'] == 1
+    assert np.isnan(dfo.loc[5, 'b_bb'])
+    assert dfo.loc[0, 'b_cc'] == 0
+    assert dfo.loc[1, 'b_cc'] == 1
+    assert dfo.loc[2, 'b_cc'] == 0
+    assert dfo.loc[3, 'b_cc'] == 1
+    assert dfo.loc[4, 'b_cc'] == 1
+    assert np.isnan(dfo.loc[5, 'b_cc'])
