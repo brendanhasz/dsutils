@@ -8,6 +8,10 @@ Provides sklearn-compatible transformer classes for categorical encoding:
 * :class:`.TargetEncoder`
 * :class:`.TargetEncoderCV`
 * :class:`.TargetEncoderLOO`
+* :class:`.TextMultiLabelBinarizer`
+* :class:`.NhotEncoder`
+* :class:`.JsonEncoder`
+* :class:`.JoinTransformer`
 
 Also provides functions to simply return an encoded DataFrame:
 
@@ -1253,7 +1257,7 @@ class JsonEncoder(BaseEstimator, TransformerMixin):
         if not isinstance(sep, str):
             raise TypeError('sep must be a str')
 
-        # Ensure all fields are lists
+        # Ensure all fields are correct type
         for col in fields:
             if not isinstance(fields[col], list):
                 fields[col] = [fields[col]]
@@ -1441,8 +1445,10 @@ class JoinTransformer(BaseEstimator, TransformerMixin):
         Xo = Xo.merge(self.df, left_on=self.left_on, 
                       right_on=self.right_on, how=self.how)
         if self.delete_old:
-            del Xo[self.right_on]
-            del Xo[self.left_on]
+            if self.right_on in Xo:
+                del Xo[self.right_on]
+            if self.left_on in Xo:
+                del Xo[self.left_on]
         return Xo
             
             

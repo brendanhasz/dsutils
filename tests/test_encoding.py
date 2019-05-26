@@ -898,8 +898,3 @@ def test_JoinTransformer():
     assert np.isnan(dfo.loc[5, 'e'])
     assert np.isnan(dfo.loc[6, 'e'])
     assert np.isnan(dfo.loc[7, 'e'])
-
-"""
-* :class:`.TargetEncoderLOO`
-
-"""
