@@ -688,6 +688,51 @@ def test_NhotEncoder():
     assert dfo.loc[4, 'b_cc'] == 1
     assert np.isnan(dfo.loc[5, 'b_cc'])
 
+    # Check top_n works
+    ne = NhotEncoder(cols='b', top_n=2)
+    dfo = ne.fit_transform(df)
+    assert dfo.shape[0] == 6
+    assert dfo.shape[1] == 4
+    assert 'b_aa' in dfo
+    assert 'b_bb' not in dfo
+    assert 'b_cc' in dfo
+    assert 'b' not in dfo
+    assert dfo.loc[0, 'b_aa'] == 1
+    assert dfo.loc[1, 'b_aa'] == 1
+    assert dfo.loc[2, 'b_aa'] == 1
+    assert dfo.loc[3, 'b_aa'] == 0
+    assert dfo.loc[4, 'b_aa'] == 1
+    assert np.isnan(dfo.loc[5, 'b_aa'])
+    assert dfo.loc[0, 'b_cc'] == 0
+    assert dfo.loc[1, 'b_cc'] == 1
+    assert dfo.loc[2, 'b_cc'] == 0
+    assert dfo.loc[3, 'b_cc'] == 1
+    assert dfo.loc[4, 'b_cc'] == 1
+    assert np.isnan(dfo.loc[5, 'b_cc'])
+
+    # Check top_prc works
+    ne = NhotEncoder(cols='b', top_prc=0.67)
+    dfo = ne.fit_transform(df)
+    assert dfo.shape[0] == 6
+    assert dfo.shape[1] == 4
+    assert 'b_aa' in dfo
+    assert 'b_bb' not in dfo
+    assert 'b_cc' in dfo
+    assert 'b' not in dfo
+    assert dfo.loc[0, 'b_aa'] == 1
+    assert dfo.loc[1, 'b_aa'] == 1
+    assert dfo.loc[2, 'b_aa'] == 1
+    assert dfo.loc[3, 'b_aa'] == 0
+    assert dfo.loc[4, 'b_aa'] == 1
+    assert np.isnan(dfo.loc[5, 'b_aa'])
+    assert dfo.loc[0, 'b_cc'] == 0
+    assert dfo.loc[1, 'b_cc'] == 1
+    assert dfo.loc[2, 'b_cc'] == 0
+    assert dfo.loc[3, 'b_cc'] == 1
+    assert dfo.loc[4, 'b_cc'] == 1
+    assert np.isnan(dfo.loc[5, 'b_cc'])
+
+
 
 def test_JsonEncoder():
     """Tests encoding.JsonEncoder"""

@@ -1111,12 +1111,12 @@ class NhotEncoder(BaseEstimator, TransformerMixin):
         """Get most frequent labels"""
         if self.top_n is not None and self.top_n < len(labels):
             df = pd.DataFrame([labels.keys(), labels.values()]).T
-            df.sort_values(1, ascending=False)
-            return df[1][:self.top_n].tolist()
+            df.sort_values(1, ascending=False, inplace=True)
+            return df[0][:self.top_n].tolist()
         elif self.top_prc is not None:
             df = pd.DataFrame([labels.keys(), labels.values()]).T
-            df.sort_values(1, ascending=False)
-            return df[1][:int(self.top_prc*len(labels))].tolist()
+            df.sort_values(1, ascending=False, inplace=True)
+            return df[0][:int(self.top_prc*len(labels))].tolist()
         else:
             return list(labels.keys())
 
@@ -1176,12 +1176,10 @@ class NhotEncoder(BaseEstimator, TransformerMixin):
         for col, vals in self.maps.items():
             for val in vals:
                 new_col = col+'_'+str(val)
-                #matches = [val in e.split(self.sep) for e in Xo[col].tolist()]
                 matches = np.full(X.shape[0], np.nan)
                 for i, e in enumerate(Xo[col].tolist()):
                     if isinstance(e, str):
                         matches[i] = val in e.split(self.sep)
-
                 Xo[new_col] = matches.astype(self.dtype)
             del Xo[col]
         return Xo
