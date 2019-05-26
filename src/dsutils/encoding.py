@@ -1358,6 +1358,101 @@ class JsonEncoder(BaseEstimator, TransformerMixin):
 
 
 
+class JoinTransformer(BaseEstimator, TransformerMixin):
+    """Join a dataframe to the X data.
+    
+    Parameters
+    ----------
+    df : pandas DataFrame
+        Table to join with the X data.  Is treated as the right table.
+    left_on : str
+        Column in the X data dataframe to join on
+    right_on : str
+        Column in ``df`` to join on.
+    how : str {'left', 'right', 'outer', 'inner'}
+        How to join the two tables.
+        Default = 'left'
+    delete_old : bool
+        Whether to delete the old column (``X[left_on]``)
+        Default = True
+
+    Examples
+    --------
+
+    TODO
+
+    """
+    
+    def __init__(self, df, left_on, right_on, how='left', delete_old=True):
+
+        # Check types
+        if not isinstance(df, pd.DataFrame):
+            raise TypeError('df must be a pandas DataFrame')
+        if not isinstance(left_on, str):
+            raise TypeError('left_on must be a str')
+        if not isinstance(right_on, str):
+            raise TypeError('right_on must be a str')
+        if not isinstance(how, str):
+            raise TypeError('how must be a str')
+        if how not in ['left', 'right', 'outer', 'inner']:
+            raise TypeError('how must be left, right, outer, or inner')
+        if not isinstance(delete_old, bool):
+            raise TypeError('delete_old must be a bool')
+
+        # Store parameters
+        self.df = df
+        self.left_on = left_on
+        self.right_on = right_on
+        self.how = how
+        self.delete_old = delete_old
+
+
+    def fit(self, X, y):
+        """Nothing needs to be done here"""
+        return self
+
+        
+    def transform(self, X, y=None):
+        """Perform the join transformation.
+        
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix
+            
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
+        """
+        Xo = X.copy()
+        Xo = Xo.merge(self.df, left_on=self.left_on, 
+                      right_on=self.right_on, how=self.how)
+        if self.delete_old:
+            del Xo[self.right_on]
+            del Xo[self.left_on]
+        return Xo
+            
+            
+    def fit_transform(self, X, y=None):
+        """Fit and transform the data.
+        
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix with columns to encode
+        y : pandas Series of shape (n_samples,)
+            Dependent variable values.
+
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
+        """
+        return self.fit(X, y).transform(X, y)
+
+
+
 def null_encode(X, y=None, cols=None, suffix='_isnull', dtype='uint8'):
     """Null encode columns in a DataFrame.
     

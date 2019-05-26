@@ -17,6 +17,7 @@ from dsutils.encoding import TargetEncoder
 from dsutils.encoding import TargetEncoderCV
 from dsutils.encoding import NhotEncoder
 from dsutils.encoding import JsonEncoder
+from dsutils.encoding import JoinTransformer
 
 
 def test_null_encode():
@@ -834,3 +835,48 @@ def test_JsonEncoder():
     assert np.isnan(dfo.loc[4, 'd_Role_Producer_Name'])
     assert np.isnan(dfo.loc[5, 'd_Role_Producer_Name'])
 
+
+def test_JoinTransformer():
+    """Tests encoding.JoinTransformer"""
+
+    # Dummy data
+    df = pd.DataFrame()
+    df['a'] = np.random.randn(8)
+    df['b'] = ['aa', 'bb', 'cc', 'aa', 'bb', 'dd', '', np.nan]
+    df['y'] = np.random.randn(8)
+
+    # Dataframe to join
+    df2 = pd.DataFrame()
+    df2['c'] = ['bb', 'cc', 'aa']
+    df2['d'] = [2, 3, 1]
+    df2['e'] = [22, 33, 11]
+
+    # Encode
+    jt = JoinTransformer(df2, left_on='b', right_on='c')
+    dfo = jt.fit_transform(df)
+    assert dfo.shape[0] == 8
+    assert dfo.shape[1] == 4
+    assert 'a' in dfo
+    assert 'b' not in dfo
+    assert 'y' in dfo
+    assert 'c' not in dfo
+    assert 'd' in dfo
+    assert 'e' in dfo
+
+    assert dfo.loc[0, 'd'] == 1
+    assert dfo.loc[1, 'd'] == 2
+    assert dfo.loc[2, 'd'] == 3
+    assert dfo.loc[3, 'd'] == 1
+    assert dfo.loc[4, 'd'] == 2
+    assert np.isnan(dfo.loc[5, 'd'])
+    assert np.isnan(dfo.loc[6, 'd'])
+    assert np.isnan(dfo.loc[7, 'd'])
+
+    assert dfo.loc[0, 'e'] == 11
+    assert dfo.loc[1, 'e'] == 22
+    assert dfo.loc[2, 'e'] == 33
+    assert dfo.loc[3, 'e'] == 11
+    assert dfo.loc[4, 'e'] == 22
+    assert np.isnan(dfo.loc[5, 'e'])
+    assert np.isnan(dfo.loc[6, 'e'])
+    assert np.isnan(dfo.loc[7, 'e'])
