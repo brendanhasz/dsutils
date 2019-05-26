@@ -98,6 +98,24 @@ def test_null_encode():
     assert df.shape[0] == 10
     assert df.shape[1] == 4
 
+    # Should delete old columns if delete_old = True
+    df = pd.DataFrame()
+    df['a'] = np.random.randn(10)
+    df['b'] = np.random.randn(10)
+    df['c'] = np.random.randn(10)
+    df.loc[2, 'a'] = np.nan
+    df.loc[5, 'b'] = np.nan
+    df.loc[6, 'c'] = np.nan
+    df = null_encode(df, cols=['a', 'b'], delete_old=True)
+    assert 'a' not in df
+    assert 'b' not in df
+    assert 'c' in df
+    assert 'a_isnull' in df
+    assert 'b_isnull' in df
+    assert 'c_isnull' not in df
+    assert df.shape[0] == 10
+    assert df.shape[1] == 3
+
 
 def test_label_encode():
     """Tests encoding.label_encode"""
@@ -880,3 +898,8 @@ def test_JoinTransformer():
     assert np.isnan(dfo.loc[5, 'e'])
     assert np.isnan(dfo.loc[6, 'e'])
     assert np.isnan(dfo.loc[7, 'e'])
+
+"""
+* :class:`.TargetEncoderLOO`
+
+"""

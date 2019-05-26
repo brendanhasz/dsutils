@@ -38,7 +38,7 @@ class NullEncoder(BaseEstimator, TransformerMixin):
     """
     
     def __init__(self, cols=None, suffix='_isnull', dtype='uint8', 
-                 nocol=None):
+                 delete_old=False, nocol=None):
         """Null encoder.
         
         Parameters
@@ -52,9 +52,13 @@ class NullEncoder(BaseEstimator, TransformerMixin):
         dtype : str
             Datatype to use for encoded columns.
             Default = 'uint8'
+        delete_old : bool
+            Whether to delete the old column which was encoded
+            Default = False
         nocol : None or str
             Action to take if a col in ``cols`` is not in the dataframe to 
             transform.  Valid values:
+
             * None - ignore cols in ``cols`` which are not in dataframe
             * 'warn' - issue a warning when a column is not in dataframe
             * 'err' - raise an error when a column is not in dataframe
@@ -72,6 +76,8 @@ class NullEncoder(BaseEstimator, TransformerMixin):
             raise TypeError('dtype must be a string (e.g. \'uint8\'')
         if nocol is not None and nocol not in ('warn', 'err'):
             raise ValueError('nocol must be None, \'warn\', or \'err\'')
+        if not isinstance(delete_old, bool):
+            raise TypeError('delete_old must be True or False')
 
         # Store parameters
         if isinstance(cols, str):
@@ -80,6 +86,7 @@ class NullEncoder(BaseEstimator, TransformerMixin):
             self.cols = cols
         self.suffix = suffix
         self.dtype = dtype
+        self.delete_old = delete_old
         self.nocol = nocol
 
         
@@ -135,6 +142,8 @@ class NullEncoder(BaseEstimator, TransformerMixin):
         Xo = X.copy()
         for col in self.cols:
             Xo[col+self.suffix] = X[col].isnull().astype(self.dtype)
+            if self.delete_old:
+                del Xo[col]
 
         # Return encoded dataframe
         return Xo
@@ -1058,6 +1067,9 @@ class NhotEncoder(BaseEstimator, TransformerMixin):
     
     Replaces column(s) containing lists of categories with binary columns.
 
+    TODO: uhhh d'oh just realized this is basically the same thing as 
+    TextMultiLabelBinarizer, should just keep one...  Probs this one.
+
     Parameters
     ----------
     cols : list of str
@@ -1453,7 +1465,8 @@ class JoinTransformer(BaseEstimator, TransformerMixin):
 
 
 
-def null_encode(X, y=None, cols=None, suffix='_isnull', dtype='uint8'):
+def null_encode(X, y=None, cols=None, suffix='_isnull', dtype='uint8',
+                delete_old=False):
     """Null encode columns in a DataFrame.
     
     For each column with null values, adds a column containing indicators
@@ -1470,13 +1483,17 @@ def null_encode(X, y=None, cols=None, suffix='_isnull', dtype='uint8'):
     dtype : str
         Datatype to use for encoded columns.
         Default = 'uint8'
+    delete_old : bool
+        Whether to delete the old column which was encoded
+        Default = False
 
     Returns
     -------
     pandas DataFrame
         Null encoded DataFrame
     """
-    ne = NullEncoder(cols=cols, suffix=suffix, dtype=dtype)
+    ne = NullEncoder(cols=cols, suffix=suffix, dtype=dtype, 
+                     delete_old=delete_old)
     return ne.fit_transform(X, y)
 
 
