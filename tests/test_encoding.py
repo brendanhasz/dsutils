@@ -18,6 +18,7 @@ from dsutils.encoding import TargetEncoderCV
 from dsutils.encoding import NhotEncoder
 from dsutils.encoding import JsonEncoder
 from dsutils.encoding import JoinTransformer
+from dsutils.encoding import LambdaTransformer
 
 
 def test_null_encode():
@@ -898,3 +899,37 @@ def test_JoinTransformer():
     assert np.isnan(dfo.loc[5, 'e'])
     assert np.isnan(dfo.loc[6, 'e'])
     assert np.isnan(dfo.loc[7, 'e'])
+
+
+def test_LambdaTransformer():
+    """Tests encoding.LambdaTransformer"""
+
+    # Dummy data
+    df = pd.DataFrame()
+    df['a'] = [4, 6, np.nan, 8]
+    df['b'] = [1, 2, 3, np.nan]
+    df['y'] = np.random.randn(4)
+
+
+    # Transform
+    transforms = {
+        'a': lambda x: x/2,
+        'b': lambda x: x*10
+    }
+    lt = LambdaTransformer(transforms)
+    dfo = lt.fit_transform(df)
+    assert dfo.shape[0] == 4
+    assert dfo.shape[1] == 3
+    assert 'a' in dfo
+    assert 'b' in dfo
+    assert 'y' in dfo
+
+    assert dfo.loc[0, 'a'] == 2
+    assert dfo.loc[1, 'a'] == 3
+    assert np.isnan(dfo.loc[2, 'a'])
+    assert dfo.loc[3, 'a'] == 4
+
+    assert dfo.loc[0, 'b'] == 10
+    assert dfo.loc[1, 'b'] == 20
+    assert dfo.loc[2, 'b'] == 30
+    assert np.isnan(dfo.loc[3, 'b'])

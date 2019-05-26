@@ -1348,7 +1348,7 @@ class JsonEncoder(BaseEstimator, TransformerMixin):
                 if field[1] is None:
                     new_col = col+'_'+field[0]
                 else:
-                    new_col = col+'_'+field[1]+'_'+field[2]+'_'+field[0]
+                    new_col = col+'_'+field[1]+'_'+str(field[2])+'_'+field[0]
                 Xo[new_col] = self._extract_field(X[col], field[0], 
                                                   field[1], field[2])
             del Xo[col]
@@ -1449,6 +1449,79 @@ class JoinTransformer(BaseEstimator, TransformerMixin):
                 del Xo[self.right_on]
             if self.left_on in Xo:
                 del Xo[self.left_on]
+        return Xo
+            
+            
+    def fit_transform(self, X, y=None):
+        """Fit and transform the data.
+        
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix with columns to encode
+        y : pandas Series of shape (n_samples,)
+            Dependent variable values.
+
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
+        """
+        return self.fit(X, y).transform(X, y)
+
+
+
+class LambdaTransformer(BaseEstimator, TransformerMixin):
+    """Transform column(s) with lambda functions
+    
+    Parameters
+    ----------
+    transforms : dict
+        Dictionary of transforms to perform on each column.  Keys should be 
+        column names, and values should be lambda functions.
+
+    Examples
+    --------
+
+    TODO
+
+    """
+    
+    def __init__(self, transforms):
+
+        # Check types
+        if not isinstance(transforms, dict):
+            raise TypeError('transforms must be a dict')
+        if not all(isinstance(e, str) for e in transforms.keys()):
+            raise TypeError('transforms keys must be str')
+        if not all(callable(e) for e in transforms.values()):
+            raise TypeError('transforms values must be callable')
+
+        # Store parameters
+        self.transforms = transforms
+
+
+    def fit(self, X, y):
+        """Nothing needs to be done here"""
+        return self
+
+        
+    def transform(self, X, y=None):
+        """Perform the join transformation.
+        
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix
+            
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
+        """
+        Xo = X.copy()
+        for col, transform in self.transforms.items():
+            Xo[col] = transform(Xo[col])
         return Xo
             
             
