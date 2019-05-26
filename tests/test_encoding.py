@@ -16,6 +16,7 @@ from dsutils.encoding import text_multi_label_binarize
 from dsutils.encoding import TargetEncoder
 from dsutils.encoding import TargetEncoderCV
 from dsutils.encoding import NhotEncoder
+from dsutils.encoding import JsonEncoder
 
 
 def test_null_encode():
@@ -686,3 +687,105 @@ def test_NhotEncoder():
     assert dfo.loc[3, 'b_cc'] == 1
     assert dfo.loc[4, 'b_cc'] == 1
     assert np.isnan(dfo.loc[5, 'b_cc'])
+
+
+def test_JsonEncoder():
+    """Tests encoding.JsonEncoder"""
+
+    # Data
+    df = pd.DataFrame()
+    df['a'] = np.random.randn(6)
+    df['b'] = ['[{\'id\': 12, \'Genre\': \'Comedy\'}, {\'id\': 13, \'Genre\': \'Romance\'}, {\'id\': 14, \'Genre\': \'Horror\'}]', 
+               '[{\'id\': 22, \'Genre\': \'Drama\'}, {\'id\': 23, \'Genre\': \'Cyberpunk\'}]', 
+               '[{\'id\': 32}, {\'id\': 33, \'Genre\': \'Scifi\'}]', 
+               '', 
+               'nan', 
+               np.nan]
+    df['c'] = ['[{\'id\': 12, \'Genre\': \'Comedy\'}, {\'id\': 13, \'Genre\': \'Romance\'}, {\'id\': 14, \'Genre\': \'Horror\'}]', 
+               '[{\'id\': 22, \'Genre\': \'Drama\'}, {\'id\': 23, \'Genre\': \'Cyberpunk\'}]', 
+               '[{\'id\': 32}, {\'id\': 33, \'Genre\': \'Scifi\'}]', 
+               '', 
+               'nan', 
+               np.nan]
+    df['d'] = ['[{\'Name\': \'Andy\', \'Role\': \'Director\'}]', 
+               '[{\'Name\': \'Sue\', \'Role\': \'Producer\'}, {\'Name\': \'Betty\', \'Role\': \'Director\'}]', 
+               '[{\'Name\': \'Carol\', \'Role\': \'Director\'}, {\'Name\': \'Rachel\', \'Role\': \'Producer\'}]', 
+               '', 
+               'nan', 
+               np.nan]
+    df['y'] = [0, 2, 4, 6, 8, 10]
+
+    # Fields to encode
+    fields = {
+        'b': 'Genre',
+        'c': ['Genre', 'id', 'not_there'],
+        'd': [('Name', 'Role', 'Director'),
+              ('Name', 'Role', 'Producer')],
+    }
+
+    # Encode
+    je = JsonEncoder(fields=fields)
+    dfo = je.fit_transform(df)
+    assert dfo.shape[0] == 6
+    assert dfo.shape[1] == 8
+    assert 'a' in dfo
+    assert 'y' in dfo
+    assert 'b_Genre' in dfo
+    assert 'b' not in dfo
+    assert 'c_Genre' in dfo
+    assert 'c_id' in dfo
+    assert 'c_not_there' in dfo
+    assert 'c' not in dfo
+    assert 'd_Role_Director_Name' in dfo
+    assert 'd_Role_Producer_Name' in dfo
+    assert 'd' not in dfo
+
+    assert dfo.loc[0, 'y'] == 0
+    assert dfo.loc[1, 'y'] == 2
+    assert dfo.loc[2, 'y'] == 4
+    assert dfo.loc[3, 'y'] == 6
+    assert dfo.loc[4, 'y'] == 8
+    assert dfo.loc[5, 'y'] == 10
+
+    assert dfo.loc[0, 'b_Genre'] == 'Comedy,Romance,Horror'
+    assert dfo.loc[1, 'b_Genre'] == 'Drama,Cyberpunk'
+    assert dfo.loc[2, 'b_Genre'] == 'Scifi'
+    assert np.isnan(dfo.loc[3, 'b_Genre'])
+    assert np.isnan(dfo.loc[4, 'b_Genre'])
+    assert np.isnan(dfo.loc[5, 'b_Genre'])
+
+    assert dfo.loc[0, 'c_Genre'] == 'Comedy,Romance,Horror'
+    assert dfo.loc[1, 'c_Genre'] == 'Drama,Cyberpunk'
+    assert dfo.loc[2, 'c_Genre'] == 'Scifi'
+    assert np.isnan(dfo.loc[3, 'c_Genre'])
+    assert np.isnan(dfo.loc[4, 'c_Genre'])
+    assert np.isnan(dfo.loc[5, 'c_Genre'])
+
+    assert dfo.loc[0, 'c_id'] == '12,13,14'
+    assert dfo.loc[1, 'c_id'] == '22,23'
+    assert dfo.loc[2, 'c_id'] == '32,33'
+    assert np.isnan(dfo.loc[3, 'c_id'])
+    assert np.isnan(dfo.loc[4, 'c_id'])
+    assert np.isnan(dfo.loc[5, 'c_id'])
+
+    assert np.isnan(dfo.loc[0, 'c_not_there'])
+    assert np.isnan(dfo.loc[1, 'c_not_there'])
+    assert np.isnan(dfo.loc[2, 'c_not_there'])
+    assert np.isnan(dfo.loc[3, 'c_not_there'])
+    assert np.isnan(dfo.loc[4, 'c_not_there'])
+    assert np.isnan(dfo.loc[5, 'c_not_there'])
+
+    assert dfo.loc[0, 'd_Role_Director_Name'] == 'Andy'
+    assert dfo.loc[1, 'd_Role_Director_Name'] == 'Betty'
+    assert dfo.loc[2, 'd_Role_Director_Name'] == 'Carol'
+    assert np.isnan(dfo.loc[3, 'd_Role_Director_Name'])
+    assert np.isnan(dfo.loc[4, 'd_Role_Director_Name'])
+    assert np.isnan(dfo.loc[5, 'd_Role_Director_Name'])
+
+    assert np.isnan(dfo.loc[0, 'd_Role_Producer_Name'])
+    assert dfo.loc[1, 'd_Role_Producer_Name'] == 'Sue'
+    assert dfo.loc[2, 'd_Role_Producer_Name'] == 'Rachel'
+    assert np.isnan(dfo.loc[3, 'd_Role_Producer_Name'])
+    assert np.isnan(dfo.loc[4, 'd_Role_Producer_Name'])
+    assert np.isnan(dfo.loc[5, 'd_Role_Producer_Name'])
+

@@ -20,13 +20,13 @@ Also provides functions to simply return an encoded DataFrame:
 
 """
 
-
+import json
 
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.model_selection import KFold
-
+from sklearn.exceptions import NotFittedError
 
 
 class NullEncoder(BaseEstimator, TransformerMixin):
@@ -1189,6 +1189,160 @@ class NhotEncoder(BaseEstimator, TransformerMixin):
             
     def fit_transform(self, X, y=None):
         """Fit and transform the data with one-hot encoding.
+        
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix with columns to encode
+        y : pandas Series of shape (n_samples,)
+            Dependent variable values.
+
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
+        """
+        return self.fit(X, y).transform(X, y)
+
+
+
+class JsonEncoder(BaseEstimator, TransformerMixin):
+    """Replace columns with JSON data with columns containing values from 
+    specific JSON fields.
+    
+    Parameters
+    ----------
+    fields : dict
+        Fields from each column to extract.  Keys should be column names,
+        and values should be lists of either:
+
+        * str - field name to extract
+        * (str, str, ???) tuple - first str is field name to extract, second
+          str is conditional field to use, and third element is value to 
+          compare to the vaue in the conditional field.  Will only encode the
+          value from the field if the value of the condition field is equal
+          to the third element.
+
+    sep : str
+        Separator to use in the output data when there are multiple values.
+        Default = ','
+
+
+    Examples
+    --------
+
+    TODO
+
+    """
+    
+    def __init__(self, fields, sep=','):
+
+        # Check types
+        if not isinstance(fields, dict):
+            raise TypeError('fields must be a dict')
+        if not isinstance(sep, str):
+            raise TypeError('sep must be a str')
+
+        # Ensure all fields are lists
+        for col in fields:
+            if not isinstance(fields[col], list):
+                fields[col] = [fields[col]]
+            for i, field in enumerate(fields[col]):
+                if isinstance(field, str):
+                    fields[col][i] = (field, None, None)
+                elif isinstance(field, tuple):
+                    if not (isinstance(field[0], str) and
+                            isinstance(field[1], str)):
+                        raise TypeError('fields must be (str,str,???) tuples')
+                else:
+                    raise TypeError('fields must be dict with values ' 
+                                    'containing str or tuple of list of them')
+
+        # Store parameters
+        self.fields = fields
+        self.sep = sep        
+
+
+    def _extract_field(self, data, field, cond_field, cond_val):
+        """Extract a field from JSON data
+
+        Parameters
+        ----------
+        data : pandas Series
+            With the json data
+        field : str
+            Key for the field(s) in the JSON data to extract
+        cond_field : str
+            Key for the field(s) in the JSON data to apply cond_fn to.
+        cond_val : any value
+            Value which cond_field must take in order to record the value from 
+            field.
+        """
+        data_o = data.copy()
+        for i in range(data.shape[0]):
+            try:
+                vals = []
+                for jdict in json.loads(data.iloc[i].replace('\'', '\"')):
+                    try:
+                        if cond_field is None or jdict[cond_field] == cond_val:
+                            vals += [str(jdict[field])]
+                    except:
+                        pass
+                if len(vals) < 1:
+                    data_o.iloc[i] = np.nan
+                else:
+                    data_o.iloc[i] = self.sep.join(vals)
+            except:
+                data_o.iloc[i] = np.nan
+        return data_o
+
+
+    def fit(self, X, y):
+        """Fit the JSON encoder to X and y
+        
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix with columns to encode
+        y : pandas Series of shape (n_samples,)
+            Dependent variable values.
+            
+        Returns
+        -------
+        JsonEncoder object
+            Returns self, the fit object.
+        """
+        return self
+
+        
+    def transform(self, X, y=None):
+        """Perform the JSON encoding transformation.
+        
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix with columns to encode
+            
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
+        """
+        Xo = X.copy()
+        for col, fields in self.fields.items():
+            for field in fields:
+                if field[1] is None:
+                    new_col = col+'_'+field[0]
+                else:
+                    new_col = col+'_'+field[1]+'_'+field[2]+'_'+field[0]
+                Xo[new_col] = self._extract_field(X[col], field[0], 
+                                                  field[1], field[2])
+            del Xo[col]
+        return Xo
+            
+            
+    def fit_transform(self, X, y=None):
+        """Fit and transform the data with JSON encoding.
         
         Parameters
         ----------
