@@ -738,10 +738,14 @@ class TargetEncoderLOO(BaseEstimator, TransformerMixin):
     (dependent variable) value for each category, using a leave-one-out
     strategy such that no sample's target value is used in computing the
     target mean which is used to replace that sample's category value.
+    Can also optionally use a Bayesian estimation of the sample's mean target
+    value, which sets a prior to the average of all encoding values, with the
+    strength of that prior proportional to the ``bayesian_c`` parameter.
 
     """
     
-    def __init__(self, cols=None, dtype='float64', nocol=None):
+    def __init__(self, cols=None, dtype='float64', nocol=None,
+                 bayesian_c=None):
         """Leave-one-out target encoder.
         
         Parameters
@@ -751,9 +755,13 @@ class TargetEncoderLOO(BaseEstimator, TransformerMixin):
             categorical columns in the DataFrame.
         dtype : str
             Datatype to use for encoded columns. Default = 'float64'
+        bayesian_c : float
+            Prior strength (C) for the Bayesian average
+            https://en.wikipedia.org/wiki/Bayesian_average
         nocol : None or str
             Action to take if a col in ``cols`` is not in the dataframe to 
             transform.  Valid values:
+
             * None - ignore cols in ``cols`` which are not in dataframe
             * 'warn' - issue a warning when a column is not in dataframe
             * 'err' - raise an error when a column is not in dataframe
@@ -769,6 +777,8 @@ class TargetEncoderLOO(BaseEstimator, TransformerMixin):
             raise TypeError('dtype must be a string (e.g. \'float64\'')
         if nocol is not None and nocol not in ('warn', 'err'):
             raise ValueError('nocol must be None, \'warn\', or \'err\'')
+        if bayesian_c is not None and not isinstance(bayesian_c, (float, int)):
+            raise TypeError('bayesian_c must be None or float or int')
 
         # Store parameters
         if isinstance(cols, str):
@@ -777,6 +787,11 @@ class TargetEncoderLOO(BaseEstimator, TransformerMixin):
             self.cols = cols
         self.dtype = dtype
         self.nocol = nocol
+        if isinstance(bayesian_c, int):
+            self.bayesian_c = float(bayesian_c)
+        else:
+            self.bayesian_c = bayesian_c
+        self.overall_mean = None
 
 
     def fit(self, X, y):
@@ -809,6 +824,9 @@ class TargetEncoderLOO(BaseEstimator, TransformerMixin):
                 if col not in X:
                     print('Column \''+col+'\' not in X')
 
+        # Compute the overall mean
+        self.overall_mean = np.mean(y)
+
         # Encode each element of each column
         self.sum_count = dict()
         for col in self.cols:
@@ -817,7 +835,7 @@ class TargetEncoderLOO(BaseEstimator, TransformerMixin):
             for unique in uniques:
                 ix = X[col]==unique
                 self.sum_count[col][unique] = (y[ix].sum(),ix.sum())
-            
+
         # Return the fit object
         return self
 
@@ -842,12 +860,20 @@ class TargetEncoderLOO(BaseEstimator, TransformerMixin):
         # Create output dataframe
         Xo = X.copy()
 
+        # Bayesian C value
+        if self.bayesian_c is not None:
+            C = self.bayesian_c
+            Cm = C*self.overall_mean
+
         # Use means from training data if passed test data
         if y is None:
             for col in self.sum_count:
                 vals = np.full(X.shape[0], np.nan)
                 for cat, sum_count in self.sum_count[col].items():
-                    vals[X[col]==cat] = sum_count[0]/sum_count[1]
+                    if self.bayesian_c is None:
+                        vals[X[col]==cat] = sum_count[0]/sum_count[1]
+                    else: #use bayesian mean
+                        vals[X[col]==cat] = (Cm+sum_count[0])/(C+sum_count[1])
                 Xo[col] = vals
 
         # LOO target encode each column if this is training data
@@ -859,7 +885,11 @@ class TargetEncoderLOO(BaseEstimator, TransformerMixin):
                     if sum_count[1]<2:
                         vals[ix] = np.nan
                     else:
-                        vals[ix] = (sum_count[0]-y[ix])/(sum_count[1]-1)
+                        if self.bayesian_c is None:
+                            vals[ix] = (sum_count[0]-y[ix])/(sum_count[1]-1)
+                        else: #use Bayesian mean
+                            vals[ix] = ((Cm+sum_count[0]-y[ix])
+                                        /(C+sum_count[1]-1))
                 Xo[col] = vals
             
         # Return encoded DataFrame
@@ -1690,7 +1720,7 @@ def target_encode_cv(X,
 
 
 
-def target_encode_loo(X, y=None, cols=None, dtype='float64'):
+def target_encode_loo(X, y=None, cols=None, dtype='float64', bayesian_c=None):
     """Leave-one-out target encode columns in a DataFrame.
 
     Replaces category values in categorical column(s) with the mean target
@@ -1705,13 +1735,16 @@ def target_encode_loo(X, y=None, cols=None, dtype='float64'):
         categorical columns in the DataFrame.
     dtype : str
         Datatype to use for encoded columns. Default = 'float64'
+    bayesian_c : float
+        Prior strength (C) for the Bayesian average
+        https://en.wikipedia.org/wiki/Bayesian_average
 
     Returns
     -------
     pandas DataFrame
         Target encoded DataFrame
     """
-    te = TargetEncoderLOO(cols=cols, dtype=dtype)
+    te = TargetEncoderLOO(cols=cols, dtype=dtype, bayesian_c=bayesian_c)
     return te.fit_transform(X, y)
 
 

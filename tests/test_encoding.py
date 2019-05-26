@@ -576,7 +576,7 @@ def test_target_encode_loo():
     df = pd.DataFrame()
     df['a'] = np.random.randn(10)
     df['b'] = ['a', 'a', 'b', 'b', 'c', 'c', 'd', 'd', 'd', np.nan]
-    df['y'] = [0, 2, 4, 6, 8, 10, 19, 20, 21, 1000]
+    df['y'] = [0, 2, 4, 6, 8, 10, 19, 20, 21, 15]
 
     # Encode
     dfo = target_encode_loo(df[['a', 'b']], df['y'], cols='b')
@@ -587,6 +587,54 @@ def test_target_encode_loo():
     assert 'y' not in dfo
     assert dfo.shape[0] == 10
     assert dfo.shape[1] == 2
+    assert dfo.loc[0, 'b'] == 2
+    assert dfo.loc[1, 'b'] == 0
+    assert dfo.loc[2, 'b'] == 6
+    assert dfo.loc[3, 'b'] == 4
+    assert dfo.loc[4, 'b'] == 10
+    assert dfo.loc[5, 'b'] == 8
+    assert dfo.loc[6, 'b'] == 20.5
+    assert dfo.loc[7, 'b'] == 20.0
+    assert dfo.loc[8, 'b'] == 19.5
+    assert np.isnan(dfo.loc[9, 'b'])
+
+    # Encode w/ bayesian_c
+    dfo = target_encode_loo(df[['a', 'b']], df['y'], cols='b', bayesian_c=10)
+    
+    # Check outputs
+    assert 'a' in dfo
+    assert 'b' in dfo
+    assert 'y' not in dfo
+    assert dfo.shape[0] == 10
+    assert dfo.shape[1] == 2
+
+    # The mean (10.5) should bring a, b, c up, but d down
+    assert dfo.loc[0, 'b'] > 2
+    assert dfo.loc[1, 'b'] > 2
+    assert dfo.loc[2, 'b'] > 6
+    assert dfo.loc[3, 'b'] > 6
+    assert dfo.loc[4, 'b'] > 10
+    assert dfo.loc[5, 'b'] > 10
+    assert dfo.loc[6, 'b'] < 19
+    assert dfo.loc[7, 'b'] < 19
+    assert dfo.loc[8, 'b'] < 19
+    assert np.isnan(dfo.loc[9, 'b'])
+
+    # But some should be larger
+    assert dfo.loc[0, 'b'] > dfo.loc[1, 'b']
+    assert dfo.loc[2, 'b'] > dfo.loc[3, 'b']
+    assert dfo.loc[4, 'b'] > dfo.loc[5, 'b']
+    assert dfo.loc[6, 'b'] > dfo.loc[7, 'b']
+    assert dfo.loc[6, 'b'] > dfo.loc[8, 'b']
+
+    # but a should all be less than b,c,d
+    assert all(dfo.loc[0, 'b'] < dfo.loc[2:8, 'b'])
+    assert all(dfo.loc[1, 'b'] < dfo.loc[2:8, 'b'])
+    assert all(dfo.loc[2, 'b'] < dfo.loc[4:8, 'b'])
+    assert all(dfo.loc[3, 'b'] < dfo.loc[4:8, 'b'])
+    assert all(dfo.loc[4, 'b'] < dfo.loc[6:8, 'b'])
+    assert all(dfo.loc[5, 'b'] < dfo.loc[6:8, 'b'])
+
 
 
 def test_text_multi_label_binarize():
