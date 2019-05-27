@@ -20,6 +20,7 @@ from dsutils.encoding import JsonEncoder
 from dsutils.encoding import JoinTransformer
 from dsutils.encoding import LambdaTransformer
 from dsutils.encoding import MultiTargetEncoderLOO
+from dsutils.encoding import DateEncoder
 
 
 def test_null_encode():
@@ -1025,6 +1026,7 @@ def test_JoinTransformer():
     assert np.isnan(dfo.loc[7, 'e'])
 
 
+
 def test_LambdaTransformer():
     """Tests encoding.LambdaTransformer"""
 
@@ -1034,11 +1036,10 @@ def test_LambdaTransformer():
     df['b'] = [1, 2, 3, np.nan]
     df['y'] = np.random.randn(4)
 
-
     # Transform
     transforms = {
         'a': lambda x: x/2,
-        'b': lambda x: x*10
+        'b': lambda x: x*10,
     }
     lt = LambdaTransformer(transforms)
     dfo = lt.fit_transform(df)
@@ -1057,3 +1058,37 @@ def test_LambdaTransformer():
     assert dfo.loc[1, 'b'] == 20
     assert dfo.loc[2, 'b'] == 30
     assert np.isnan(dfo.loc[3, 'b'])
+
+
+
+def test_DateEncoder():
+    """Tests encoding.DateEncoder"""
+
+    # Dummy data
+    df = pd.DataFrame()
+    df['a'] = ['1999/09', '2001/01', '2040/12', '1987/05']
+    df['y'] = np.random.randn(4)
+
+    # Transform
+    date_cols = {
+        'a': ('%Y/%m', ['year', 'month'])
+    }
+    de = DateEncoder(date_cols)
+    dfo = de.fit_transform(df)
+
+    assert dfo.shape[0] == 4
+    assert dfo.shape[1] == 3
+    assert 'a' not in dfo
+    assert 'a_year' in dfo
+    assert 'a_month' in dfo
+    assert 'y' in dfo
+
+    assert dfo.loc[0, 'a_year'] == 1999
+    assert dfo.loc[1, 'a_year'] == 2001
+    assert dfo.loc[2, 'a_year'] == 2040
+    assert dfo.loc[3, 'a_year'] == 1987
+
+    assert dfo.loc[0, 'a_month'] == 9
+    assert dfo.loc[1, 'a_month'] == 1
+    assert dfo.loc[2, 'a_month'] == 12
+    assert dfo.loc[3, 'a_month'] == 5

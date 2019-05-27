@@ -1586,6 +1586,130 @@ class JsonEncoder(BaseEstimator, TransformerMixin):
 
 
 
+class DateEncoder(BaseEstimator, TransformerMixin):
+    """Replace datetime columns with date/time features.
+    
+    Parameters
+    ----------
+    cols : dict
+        What columns to replace with date/time features, and what features to
+        compute for each column.
+
+
+    Examples
+    --------
+
+    TODO
+
+    """
+    
+    def __init__(self, cols):
+
+        # Valid features
+        self.valids = ['year', 'month', 'day', 'hour', 'minute', 'second',
+                       'week', 'weekofyear', 'dayofweek', 'dayofyear']
+
+        # Check input
+        if not isinstance(cols, dict):
+            raise TypeError('cols must be a dict')
+        for col in cols:
+            if not isinstance(cols[col], tuple) or len(cols[col])!=2:
+                raise TypeError('cols must be dict of len-2 tuples')
+            if not isinstance(cols[col][0], str):
+                raise TypeError('first element of cols values must be '
+                                'str containing the date format')
+            if isinstance(cols[col][1], str):
+                cols[col][1] = [cols[col][1]]
+            if not isinstance(cols[col][1], list):
+                raise TypeError('second element of cols values must be '
+                                'list containing date features to extract')
+            if not all(isinstance(e, str) for e in cols[col][1]):
+                raise TypeError('second element of cols values must be '
+                                'list containing str')
+            if not all(e in self.valids for e in cols[col][1]):
+                raise ValueError('second element of cols values must be list '
+                                'containing one of: '+', '.join(self.valids))
+
+        # Store parameters
+        self.cols = cols
+
+
+    def _feat_from_str(self, data, feat):
+        """Get datetime feature from string"""
+        if feat == 'year':
+            return data.dt.year
+        elif feat == 'month':
+            return data.dt.month
+        elif feat == 'day':
+            return data.dt.day
+        elif feat == 'hour':
+            return data.dt.hour
+        elif feat == 'minute':
+            return data.dt.minute
+        elif feat == 'second':
+            return data.dt.second
+        elif feat == 'week':
+            return data.dt.week
+        elif feat == 'weekofyear':
+            return data.dt.weekofyear
+        elif feat == 'dayofweek':
+            return data.dt.dayofweek
+        elif feat == 'dayofyear':
+            return data.dt.dayofyear
+        else:
+            raise ValueError('second element of cols values must be list '
+                            'containing one of: '+', '.join(self.valids))
+
+
+    def fit(self, X, y):
+        """Nothing needs to be done here"""
+        return self
+
+        
+    def transform(self, X, y=None):
+        """Encode the date/times as features.
+        
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix with columns to encode
+            
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
+        """
+        Xo = X.copy()
+        for col, features in self.cols.items():
+            fmt = features[0]
+            feats = features[1]
+            dt_col = pd.to_datetime(X[col], format=fmt)
+            for feat in feats:
+                new_col = col+'_'+feat
+                Xo[new_col] = self._feat_from_str(dt_col, feat)
+            del Xo[col]
+        return Xo
+            
+            
+    def fit_transform(self, X, y=None):
+        """Fit and transform the data with JSON encoding.
+        
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix with columns to encode
+        y : pandas Series of shape (n_samples,)
+            Dependent variable values.
+
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
+        """
+        return self.fit(X, y).transform(X, y)
+
+
+
 class JoinTransformer(BaseEstimator, TransformerMixin):
     """Join a dataframe to the X data.
     
@@ -1733,7 +1857,8 @@ class LambdaTransformer(BaseEstimator, TransformerMixin):
         """
         Xo = X.copy()
         for col, transform in self.transforms.items():
-            Xo[col] = transform(Xo[col])
+            #Xo[col] = transform(Xo[col])
+            Xo[col] = Xo[col].apply(transform)
         return Xo
             
             
