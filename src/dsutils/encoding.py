@@ -24,7 +24,7 @@ Also provides functions to simply return an encoded DataFrame:
 
 """
 
-import json
+import ast
 
 import numpy as np
 import pandas as pd
@@ -948,7 +948,7 @@ class MultiTargetEncoderLOO(BaseEstimator, TransformerMixin):
     """
     
     def __init__(self, cols=None, dtype='float64', nocol=None,
-                 bayesian_c=None, sep=','):
+                 bayesian_c=0.0, sep=','):
 
         # Check types
         if cols is not None and not isinstance(cols, (list, str)):
@@ -960,8 +960,8 @@ class MultiTargetEncoderLOO(BaseEstimator, TransformerMixin):
             raise TypeError('dtype must be a string (e.g. \'float64\'')
         if nocol is not None and nocol not in ('warn', 'err'):
             raise ValueError('nocol must be None, \'warn\', or \'err\'')
-        if bayesian_c is not None and not isinstance(bayesian_c, (float, int)):
-            raise TypeError('bayesian_c must be None or float or int')
+        if not isinstance(bayesian_c, (float, int)):
+            raise TypeError('bayesian_c must be float or int')
         if not isinstance(sep, str):
             raise TypeError('sep must be a str')
 
@@ -972,10 +972,7 @@ class MultiTargetEncoderLOO(BaseEstimator, TransformerMixin):
             self.cols = cols
         self.dtype = dtype
         self.nocol = nocol
-        if isinstance(bayesian_c, int):
-            self.bayesian_c = float(bayesian_c)
-        else:
-            self.bayesian_c = bayesian_c
+        self.bayesian_c = float(bayesian_c)
         self.sep = sep
         self.overall_mean = None
 
@@ -1020,8 +1017,8 @@ class MultiTargetEncoderLOO(BaseEstimator, TransformerMixin):
                 if col not in X:
                     print('Column \''+col+'\' not in X')
 
-        # Compute the overall mean (with LOO)
-        self.overall_mean = (np.sum(y)-y)/(y.shape[0]-1)
+        # Compute the overall mean
+        self.overall_mean = np.mean(y)
 
         # Count labels in each column
         self.sum_count = dict()
@@ -1029,6 +1026,7 @@ class MultiTargetEncoderLOO(BaseEstimator, TransformerMixin):
             self.sum_count[col] = dict()
             cats = [e for e in X[col].tolist() if isinstance(e, str)]
             cats = set([i for o in cats for i in o.split(self.sep)])
+            cats = set([e for e in cats if len(e)>0])
             for cat in cats:
                 ix = self._get_matches(X[col], cat)
                 self.sum_count[col][cat] = (y[ix].sum(), ix.sum())
@@ -1058,42 +1056,24 @@ class MultiTargetEncoderLOO(BaseEstimator, TransformerMixin):
         Xo = X.copy()
 
         # Bayesian C value
-        if self.bayesian_c is not None:
-            C = self.bayesian_c
-            Cm = C*self.overall_mean
+        C = self.bayesian_c
+        Cm = C*self.overall_mean
 
-        # Use means from training data if passed test data
-        if y is None:
-            for col in self.sum_count:
-                vals = np.full(X.shape[0], 0.0)
-                counts = np.full(X.shape[0], 0.0)
-                for cat, sum_count in self.sum_count[col].items():
+        # Flag for whether to perform LOO (depends on test vs train)
+        lm = 0 if y is None else 1
+
+        # Encode the columns
+        for col in self.sum_count:
+            vals = np.full(X.shape[0], 0.0)
+            counts = np.full(X.shape[0], 0.0)
+            for cat, sum_count in self.sum_count[col].items():
+                if (sum_count[1]-lm) > 0:
                     ix = self._get_matches(X[col], cat)
+                    val = (Cm+sum_count[0]-lm*y[ix]) / (C+sum_count[1]-lm)
+                    vals[ix] += val
                     counts[ix] += 1
-                    if self.bayesian_c is None:
-                        vals[ix] += sum_count[0]/sum_count[1]
-                    else: #use bayesian mean
-                        vals[ix] += (Cm[ix]+sum_count[0])/(C+sum_count[1])
-                Xo[col] = vals/counts
-                # TODO: could only set elements w/ counts>0?
+            Xo[col] = vals/counts
 
-        # LOO target encode each column if this is training data
-        else:
-            for col in self.sum_count:
-                vals = np.full(X.shape[0], 0.0)
-                counts = np.full(X.shape[0], 0.0)
-                for cat, sum_count in self.sum_count[col].items():
-                    if sum_count[1]>1:
-                        ix = self._get_matches(X[col], cat)
-                        counts[ix] += 1
-                        if self.bayesian_c is None:
-                            vals[ix] += (sum_count[0]-y[ix])/(sum_count[1]-1)
-                        else: #use Bayesian mean
-                            vals[ix] += ((Cm[ix]+sum_count[0]-y[ix])
-                                         /(C+sum_count[1]-1))
-                Xo[col] = vals/counts
-                # TODO: could only set elements w/ counts>0?
-            
         # Return encoded DataFrame
         return Xo
       
@@ -1528,7 +1508,7 @@ class JsonEncoder(BaseEstimator, TransformerMixin):
         for i in range(data.shape[0]):
             try:
                 vals = []
-                for jdict in json.loads(data.iloc[i].replace('\'', '\"')):
+                for jdict in ast.literal_eval(data.iloc[i]):
                     try:
                         if cond_field is None or jdict[cond_field] == cond_val:
                             vals += [str(jdict[field])]
@@ -1582,7 +1562,7 @@ class JsonEncoder(BaseEstimator, TransformerMixin):
                 else:
                     new_col = col+'_'+field[1]+'_'+str(field[2])+'_'+field[0]
                 Xo[new_col] = self._extract_field(X[col], field[0], 
-                                                  field[1], field[2])
+                                                  field[1], field[2])                
             del Xo[col]
         return Xo
             
