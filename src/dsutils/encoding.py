@@ -1020,8 +1020,8 @@ class MultiTargetEncoderLOO(BaseEstimator, TransformerMixin):
                 if col not in X:
                     print('Column \''+col+'\' not in X')
 
-        # Compute the overall mean
-        self.overall_mean = np.mean(y)
+        # Compute the overall mean (with LOO)
+        self.overall_mean = (np.sum(y)-y)/(y.shape[0]-1)
 
         # Count labels in each column
         self.sum_count = dict()
@@ -1073,7 +1073,7 @@ class MultiTargetEncoderLOO(BaseEstimator, TransformerMixin):
                     if self.bayesian_c is None:
                         vals[ix] += sum_count[0]/sum_count[1]
                     else: #use bayesian mean
-                        vals[ix] += (Cm+sum_count[0])/(C+sum_count[1])
+                        vals[ix] += (Cm[ix]+sum_count[0])/(C+sum_count[1])
                 Xo[col] = vals/counts
                 # TODO: could only set elements w/ counts>0?
 
@@ -1089,8 +1089,8 @@ class MultiTargetEncoderLOO(BaseEstimator, TransformerMixin):
                         if self.bayesian_c is None:
                             vals[ix] += (sum_count[0]-y[ix])/(sum_count[1]-1)
                         else: #use Bayesian mean
-                            vals[ix] += ((Cm+sum_count[0]-y[ix])
-                                        /(C+sum_count[1]-1))
+                            vals[ix] += ((Cm[ix]+sum_count[0]-y[ix])
+                                         /(C+sum_count[1]-1))
                 Xo[col] = vals/counts
                 # TODO: could only set elements w/ counts>0?
             

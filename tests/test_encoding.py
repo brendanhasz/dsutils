@@ -690,7 +690,26 @@ def test_MultiTargetEncoderLOO():
     assert np.isnan(dfo.loc[5, 'c'])
 
     # Encode w/ bayesian_c
-    #TODO
+    mte = MultiTargetEncoderLOO(cols=['b', 'c'], bayesian_c=5)
+    dfo = mte.fit_transform(df[['a', 'b', 'c']], df['y'])
+    assert 'a' in dfo
+    assert 'b' in dfo
+    assert 'b_aa' not in dfo
+    assert 'c' in dfo
+    assert 'c_aaa' not in dfo
+    assert 'y' not in dfo
+    assert dfo.shape[0] == 6
+    assert dfo.shape[1] == 3
+    assert dfo.loc[0, 'b'] > 2
+    assert dfo.loc[1, 'b'] > 2
+    assert dfo.loc[2, 'b'] > 2
+    assert np.isnan(dfo.loc[3, 'b'])
+    assert np.isnan(dfo.loc[4, 'b'])
+    assert np.isnan(dfo.loc[5, 'b'])
+    assert dfo.loc[0, 'c'] > dfo.loc[1, 'c']
+    assert dfo.loc[2, 'c'] > dfo.loc[3, 'c']
+    assert np.isnan(dfo.loc[4, 'c'])
+    assert np.isnan(dfo.loc[5, 'c'])
 
 
 
