@@ -19,6 +19,7 @@ from dsutils.encoding import NhotEncoder
 from dsutils.encoding import JsonEncoder
 from dsutils.encoding import JoinTransformer
 from dsutils.encoding import LambdaTransformer
+from dsutils.encoding import MultiTargetEncoderLOO
 
 
 def test_null_encode():
@@ -634,6 +635,62 @@ def test_target_encode_loo():
     assert all(dfo.loc[3, 'b'] < dfo.loc[4:8, 'b'])
     assert all(dfo.loc[4, 'b'] < dfo.loc[6:8, 'b'])
     assert all(dfo.loc[5, 'b'] < dfo.loc[6:8, 'b'])
+
+
+
+def test_MultiTargetEncoderLOO():
+    """Tests encoding.MultiTargetEncoderLOO"""
+
+    # Data
+    df = pd.DataFrame()
+    df['a'] = np.random.randn(6)
+    df['b'] = ['aa,bb', 'aa,cc', 'cc', 'lala', '', np.nan]
+    df['c'] = ['aaa,bbb', 'aaa,ccc', 'ccc,bbb', 'bbb', '', np.nan]
+    df['y'] = [1, 2, 3, 4, 5, 6]
+
+    # Single col
+    mte = MultiTargetEncoderLOO(cols='b')
+    dfo = mte.fit_transform(df[['a', 'b', 'c']], df['y'])
+    assert 'a' in dfo
+    assert 'b' in dfo
+    assert 'b_aa' not in dfo
+    assert 'c' in dfo
+    assert 'y' not in dfo
+    assert dfo.shape[0] == 6
+    assert dfo.shape[1] == 3
+    assert dfo.loc[0, 'b'] == 2
+    assert dfo.loc[1, 'b'] == 2
+    assert dfo.loc[2, 'b'] == 2
+    assert np.isnan(dfo.loc[3, 'b'])
+    assert np.isnan(dfo.loc[4, 'b'])
+    assert np.isnan(dfo.loc[5, 'b'])
+
+    # Multiple cols
+    mte = MultiTargetEncoderLOO(cols=['b', 'c'])
+    dfo = mte.fit_transform(df[['a', 'b', 'c']], df['y'])
+    assert 'a' in dfo
+    assert 'b' in dfo
+    assert 'b_aa' not in dfo
+    assert 'c' in dfo
+    assert 'c_aaa' not in dfo
+    assert 'y' not in dfo
+    assert dfo.shape[0] == 6
+    assert dfo.shape[1] == 3
+    assert dfo.loc[0, 'b'] == 2
+    assert dfo.loc[1, 'b'] == 2
+    assert dfo.loc[2, 'b'] == 2
+    assert np.isnan(dfo.loc[3, 'b'])
+    assert np.isnan(dfo.loc[4, 'b'])
+    assert np.isnan(dfo.loc[5, 'b'])
+    assert dfo.loc[0, 'c'] == (2+3.5)/2.0
+    assert dfo.loc[1, 'c'] == 2
+    assert dfo.loc[2, 'c'] == (2+2.5)/2.0
+    assert dfo.loc[3, 'c'] == 2
+    assert np.isnan(dfo.loc[4, 'c'])
+    assert np.isnan(dfo.loc[5, 'c'])
+
+    # Encode w/ bayesian_c
+    #TODO
 
 
 

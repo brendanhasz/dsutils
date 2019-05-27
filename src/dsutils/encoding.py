@@ -915,6 +915,208 @@ class TargetEncoderLOO(BaseEstimator, TransformerMixin):
 
 
 
+class MultiTargetEncoderLOO(BaseEstimator, TransformerMixin):
+    """Leave-one-out target encoder which handles multiple classes per sample.
+
+    Replaces category values in categorical column(s) with the mean target
+    (dependent variable) value for each category, using a leave-one-out
+    strategy such that no sample's target value is used in computing the
+    target mean which is used to replace that sample's category value.
+    Can also optionally use a Bayesian estimation of the sample's mean target
+    value, which sets a prior to the average of all encoding values, with the
+    strength of that prior proportional to the ``bayesian_c`` parameter.
+
+    Parameters
+    ----------
+    cols : str or list of str
+        Column(s) to target encode.  Default is to target encode all
+        categorical columns in the DataFrame.
+    dtype : str
+        Datatype to use for encoded columns. Default = 'float64'
+    bayesian_c : float
+        Prior strength (C) for the Bayesian average
+        https://en.wikipedia.org/wiki/Bayesian_average
+    sep : str
+        Separator string which delimits the labels
+    nocol : None or str
+        Action to take if a col in ``cols`` is not in the dataframe to 
+        transform.  Valid values:
+
+        * None - (default) ignore cols which aren't in dataframe
+        * 'warn' - issue a warning when a column is not in dataframe
+        * 'err' - raise an error when a column is not in dataframe
+    """
+    
+    def __init__(self, cols=None, dtype='float64', nocol=None,
+                 bayesian_c=None, sep=','):
+
+        # Check types
+        if cols is not None and not isinstance(cols, (list, str)):
+            raise TypeError('cols must be None, or a list or a string')
+        if isinstance(cols, list):
+            if not all(isinstance(c, str) for c in cols):
+                raise TypeError('each element of cols must be a string')
+        if not isinstance(dtype, str):
+            raise TypeError('dtype must be a string (e.g. \'float64\'')
+        if nocol is not None and nocol not in ('warn', 'err'):
+            raise ValueError('nocol must be None, \'warn\', or \'err\'')
+        if bayesian_c is not None and not isinstance(bayesian_c, (float, int)):
+            raise TypeError('bayesian_c must be None or float or int')
+        if not isinstance(sep, str):
+            raise TypeError('sep must be a str')
+
+        # Store parameters
+        if isinstance(cols, str):
+            self.cols = [cols]
+        else:
+            self.cols = cols
+        self.dtype = dtype
+        self.nocol = nocol
+        if isinstance(bayesian_c, int):
+            self.bayesian_c = float(bayesian_c)
+        else:
+            self.bayesian_c = bayesian_c
+        self.sep = sep
+        self.overall_mean = None
+
+
+    def _get_matches(self, data, val):
+        data_o = data.astype('bool')
+        for i in range(data.shape[0]):
+            if isinstance(data.iloc[i], str):
+                data_o.iloc[i] = val in data.iloc[i].split(self.sep)
+            else:
+                data_o.iloc[i] = False
+        return data_o
+
+
+    def fit(self, X, y):
+        """Fit leave-one-out target encoder to X and y.
+        
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix with columns to encode
+        y : pandas Series of shape (n_samples,)
+            Dependent variable values.
+            
+        Returns
+        -------
+        MultiTargetEncoderLOO
+            Returns self, the fit object.
+        """
+        
+        # Encode all categorical cols by default
+        if self.cols is None:
+            self.cols = [col for col in X if str(X[col].dtype)=='object']
+
+        # Check columns are in X
+        if self.nocol == 'err':
+            for col in self.cols:
+                if col not in X:
+                    raise ValueError('Column \''+col+'\' not in X')
+        elif self.nocol == 'warn':
+            for col in self.cols:
+                if col not in X:
+                    print('Column \''+col+'\' not in X')
+
+        # Compute the overall mean
+        self.overall_mean = np.mean(y)
+
+        # Count labels in each column
+        self.sum_count = dict()
+        for col in self.cols:
+            self.sum_count[col] = dict()
+            cats = [e for e in X[col].tolist() if isinstance(e, str)]
+            cats = set([i for o in cats for i in o.split(self.sep)])
+            for cat in cats:
+                ix = self._get_matches(X[col], cat)
+                self.sum_count[col][cat] = (y[ix].sum(), ix.sum())
+
+        # Return the fit object
+        return self
+
+    
+    def transform(self, X, y=None):
+        """Perform the target encoding transformation.
+
+        Uses leave-one-out target encoding when given training data, and uses
+        normal target encoding when given test data.
+
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix with columns to encode
+
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
+        """
+        
+        # Create output dataframe
+        Xo = X.copy()
+
+        # Bayesian C value
+        if self.bayesian_c is not None:
+            C = self.bayesian_c
+            Cm = C*self.overall_mean
+
+        # Use means from training data if passed test data
+        if y is None:
+            for col in self.sum_count:
+                vals = np.full(X.shape[0], 0.0)
+                counts = np.full(X.shape[0], 0.0)
+                for cat, sum_count in self.sum_count[col].items():
+                    ix = self._get_matches(X[col], cat)
+                    counts[ix] += 1
+                    if self.bayesian_c is None:
+                        vals[ix] += sum_count[0]/sum_count[1]
+                    else: #use bayesian mean
+                        vals[ix] += (Cm+sum_count[0])/(C+sum_count[1])
+                Xo[col] = vals/counts
+                # TODO: could only set elements w/ counts>0?
+
+        # LOO target encode each column if this is training data
+        else:
+            for col in self.sum_count:
+                vals = np.full(X.shape[0], 0.0)
+                counts = np.full(X.shape[0], 0.0)
+                for cat, sum_count in self.sum_count[col].items():
+                    if sum_count[1]>1:
+                        ix = self._get_matches(X[col], cat)
+                        counts[ix] += 1
+                        if self.bayesian_c is None:
+                            vals[ix] += (sum_count[0]-y[ix])/(sum_count[1]-1)
+                        else: #use Bayesian mean
+                            vals[ix] += ((Cm+sum_count[0]-y[ix])
+                                        /(C+sum_count[1]-1))
+                Xo[col] = vals/counts
+                # TODO: could only set elements w/ counts>0?
+            
+        # Return encoded DataFrame
+        return Xo
+      
+            
+    def fit_transform(self, X, y=None):
+        """Fit and transform the data with leave-one-out target encoding.
+        
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix with columns to encode
+        y : pandas Series of shape (n_samples,)
+            Dependent variable values.
+
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
+        """
+        return self.fit(X, y).transform(X, y)
+
+
+
 class TextMultiLabelBinarizer(BaseEstimator, TransformerMixin):
     """Multi-label encode text data
     
