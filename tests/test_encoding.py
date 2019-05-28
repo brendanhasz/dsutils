@@ -21,6 +21,8 @@ from dsutils.encoding import JoinTransformer
 from dsutils.encoding import LambdaTransformer
 from dsutils.encoding import MultiTargetEncoderLOO
 from dsutils.encoding import DateEncoder
+from dsutils.encoding import JoinColumns
+
 
 
 def test_null_encode():
@@ -1092,3 +1094,32 @@ def test_DateEncoder():
     assert dfo.loc[1, 'a_month'] == 1
     assert dfo.loc[2, 'a_month'] == 12
     assert dfo.loc[3, 'a_month'] == 5
+
+
+
+def test_JoinColumns():
+    """Tests encoding.JoinColumns"""
+
+    # Dummy data
+    df = pd.DataFrame()
+    df['a'] = ['aa1', 'aa2', np.nan, 'aa4']
+    df['b'] = ['bb1', 'bb2', 'bb3', 'bb4']
+    df['c'] = ['cc1', '', 'cc3', 'cc4']
+    df['y'] = np.random.randn(4)
+
+    # Transform
+    jc = JoinColumns(['a', 'b', 'c'], 'new')
+    dfo = jc.fit_transform(df)
+
+    assert dfo.shape[0] == 4
+    assert dfo.shape[1] == 2
+    assert 'a' not in dfo
+    assert 'b' not in dfo
+    assert 'c' not in dfo
+    assert 'new' in dfo
+    assert 'y' in dfo
+
+    assert dfo.loc[0, 'new'] == 'aa1,bb1,cc1'
+    assert dfo.loc[1, 'new'] == 'aa2,bb2'
+    assert dfo.loc[2, 'new'] == 'bb3,cc3'
+    assert dfo.loc[3, 'new'] == 'aa4,bb4,cc4'

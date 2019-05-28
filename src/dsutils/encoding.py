@@ -1807,6 +1807,102 @@ class JoinTransformer(BaseEstimator, TransformerMixin):
 
 
 
+class JoinColumns(BaseEstimator, TransformerMixin):
+    """Join multiple columns.
+    
+    Parameters
+    ----------
+    cols : list of str
+        Columns to join
+    name : str
+        Name for the new column
+    sep : str
+        Separator string to use.
+        Default = ','
+    delete_old : bool
+        Whether to delete the columns merged to make the new columns.
+        Default = True
+
+    Examples
+    --------
+
+    TODO
+
+    """
+    
+    def __init__(self, cols, name, sep=',', delete_old=True):
+
+        # Check types
+        if not isinstance(cols, (str, list)):
+            raise TypeError('cols must be a str or list of str')
+        if not isinstance(name, str):
+            raise TypeError('name must be a str')
+        if not isinstance(sep, str):
+            raise TypeError('sep must be a str')
+        if not isinstance(delete_old, bool):
+            raise TypeError('delete_old must be a bool')
+
+        # Store parameters
+        if isinstance(cols, str):
+            self.cols = [cols]
+        else:
+            self.cols = cols
+        self.name = name
+        self.sep = sep
+        self.delete_old = delete_old
+
+
+    def fit(self, X, y):
+        """Nothing needs to be done here"""
+        return self
+
+        
+    def transform(self, X, y=None):
+        """Join the columns
+        
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix
+            
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
+        """
+        Xo = X.copy()
+        Xo[self.name] = ''
+        for i in range(Xo.shape[0]):
+            vals = [Xo[c].iloc[i] for c in self.cols]
+            vals = [v for v in vals if isinstance(v, str)]
+            vals = [v for v in vals if len(v)>0]
+            Xo[self.name].iloc[i] = ','.join(vals)
+            # TODO: that's throwing a SettingWithCopyWarning...
+        if self.delete_old:
+            for col in self.cols:
+                del Xo[col]
+        return Xo
+            
+            
+    def fit_transform(self, X, y=None):
+        """Fit and transform the data.
+        
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix with columns to encode
+        y : pandas Series of shape (n_samples,)
+            Dependent variable values.
+
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
+        """
+        return self.fit(X, y).transform(X, y)
+
+
+
 class LambdaTransformer(BaseEstimator, TransformerMixin):
     """Transform column(s) with lambda functions
     
