@@ -22,6 +22,7 @@ from dsutils.encoding import LambdaTransformer
 from dsutils.encoding import MultiTargetEncoderLOO
 from dsutils.encoding import DateEncoder
 from dsutils.encoding import JoinColumns
+from dsutils.encoding import LambdaFeatures
 
 
 
@@ -1123,3 +1124,42 @@ def test_JoinColumns():
     assert dfo.loc[1, 'new'] == 'aa2,bb2'
     assert dfo.loc[2, 'new'] == 'bb3,cc3'
     assert dfo.loc[3, 'new'] == 'aa4,bb4,cc4'
+
+
+
+def test_LambdaFeatures():
+    """Tests encoding.LambdaFeatures"""
+
+    # Dummy data
+    df = pd.DataFrame()
+    df['a'] = [1, 2, 3, 4]
+    df['b'] = [5, 6, 7, 8]
+    df['c'] = [10, 11, 12, 13]
+    df['y'] = np.random.randn(4)
+
+    # Compute features
+    features = {
+        'a_plus_b': lambda x: x['a'] + x['b'],
+        'a_times_c': lambda x: x['a'] * x['c'],
+    }
+    lf = LambdaFeatures(features)
+    dfo = lf.fit_transform(df)
+
+    assert dfo.shape[0] == 4
+    assert dfo.shape[1] == 6
+    assert 'a' in dfo
+    assert 'b' in dfo
+    assert 'c' in dfo
+    assert 'y' in dfo
+    assert 'a_plus_b' in dfo
+    assert 'a_times_c' in dfo
+
+    assert dfo.loc[0, 'a_plus_b'] == 6
+    assert dfo.loc[1, 'a_plus_b'] == 8
+    assert dfo.loc[2, 'a_plus_b'] == 10
+    assert dfo.loc[3, 'a_plus_b'] == 12
+
+    assert dfo.loc[0, 'a_times_c'] == 10
+    assert dfo.loc[1, 'a_times_c'] == 22
+    assert dfo.loc[2, 'a_times_c'] == 36
+    assert dfo.loc[3, 'a_times_c'] == 52

@@ -1778,8 +1778,11 @@ class JoinTransformer(BaseEstimator, TransformerMixin):
             Input DataFrame with transformed columns
         """
         Xo = X.copy()
-        Xo = Xo.merge(self.df, left_on=self.left_on, 
-                      right_on=self.right_on, how=self.how)
+        index_name = 'index' if Xo.index.name is None else Xo.index.name
+        Xo = (Xo.reset_index()
+                .merge(self.df, left_on=self.left_on, 
+                       right_on=self.right_on, how=self.how)
+                .set_index(index_name))
         if self.delete_old:
             if self.right_on in Xo:
                 del Xo[self.right_on]
@@ -1953,8 +1956,83 @@ class LambdaTransformer(BaseEstimator, TransformerMixin):
         """
         Xo = X.copy()
         for col, transform in self.transforms.items():
-            #Xo[col] = transform(Xo[col])
             Xo[col] = Xo[col].apply(transform)
+        return Xo
+            
+            
+    def fit_transform(self, X, y=None):
+        """Fit and transform the data.
+        
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix with columns to encode
+        y : pandas Series of shape (n_samples,)
+            Dependent variable values.
+
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
+        """
+        return self.fit(X, y).transform(X, y)
+
+
+
+class LambdaFeatures(BaseEstimator, TransformerMixin):
+    """Create new features.
+    
+    Parameters
+    ----------
+    features : dict
+        Dictionary of features to create.  Keys should contain names for the 
+        new columns, and values should be functions.  The function should take
+        one argument (the X dataframe), and return a series containing
+        the new feature.
+
+    Examples
+    --------
+
+    TODO
+
+    """
+    
+    def __init__(self, features):
+
+        # Check types
+        if not isinstance(features, dict):
+            raise TypeError('features must be a dict')
+        for col, feat in features.items():
+            if not isinstance(col, str):
+                raise TypeError('features keys must be str')
+            if not callable(feat):
+                raise TypeError('features values must be callable')
+
+        # Store parameters
+        self.features = features
+
+
+    def fit(self, X, y):
+        """Nothing needs to be done here"""
+        return self
+
+        
+    def transform(self, X, y=None):
+        """Create the new features.
+        
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix
+            
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
+        """
+        Xo = X.copy()
+        for col, feat in self.features.items():
+            Xo[col] = feat(Xo)
         return Xo
             
             
