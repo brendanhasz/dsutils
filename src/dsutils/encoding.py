@@ -1874,13 +1874,11 @@ class JoinColumns(BaseEstimator, TransformerMixin):
             Input DataFrame with transformed columns
         """
         Xo = X.copy()
-        Xo[self.name] = ''
-        for i in range(Xo.shape[0]):
-            vals = [Xo[c].iloc[i] for c in self.cols]
-            vals = [v for v in vals if isinstance(v, str)]
-            vals = [v for v in vals if len(v)>0]
-            Xo[self.name].iloc[i] = ','.join(vals)
-            # TODO: that's throwing a SettingWithCopyWarning...
+        data = [Xo[c].tolist() for c in self.cols]
+        Xo[self.name] = [self.sep.join([e[i] for e in data 
+                                        if isinstance(e[i], str) 
+                                        and len(e[i])>0]) 
+                         for i in range(X.shape[0])]
         if self.delete_old:
             for col in self.cols:
                 del Xo[col]
