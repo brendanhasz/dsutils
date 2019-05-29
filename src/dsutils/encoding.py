@@ -977,16 +977,6 @@ class MultiTargetEncoderLOO(BaseEstimator, TransformerMixin):
         self.overall_mean = None
 
 
-    def _get_matches(self, data, val):
-        data_o = data.astype('bool')
-        for i in range(data.shape[0]):
-            if isinstance(data.iloc[i], str):
-                data_o.iloc[i] = val in data.iloc[i].split(self.sep)
-            else:
-                data_o.iloc[i] = False
-        return data_o
-
-
     def fit(self, X, y):
         """Fit leave-one-out target encoder to X and y.
         
@@ -1074,9 +1064,10 @@ class MultiTargetEncoderLOO(BaseEstimator, TransformerMixin):
                     for tval in tlist.split(self.sep):
                         SC = self.sum_count[col][tval]
                         if tval in self.sum_count[col] and (SC[1]>1 or lm==0):
-                            vals[i] += SC[0]-lm*y.iloc[i]
+                            vals[i] += SC[0]-(0 if y is None else lm*y.iloc[i])
                             counts[i] += SC[1]-lm
             Xo[col] = (Cm+vals)/(C+counts)
+            Xo[col][counts==0.0] = np.nan
 
         # Return encoded DataFrame
         return Xo
