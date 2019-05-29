@@ -390,8 +390,14 @@ class BaggedRegressor(BaseEstimator, RegressorMixin):
                                     replace=self.replace)
             f_ix = np.random.choice(Nf, size=int(Nf*self.max_features),
                                     replace=self.replace_features)
-            Xs = Xp.iloc[s_ix, f_ix]
-            ys = y.iloc[s_ix]
+            if isinstance(Xp, pd.DataFrame):
+                Xs = Xp.iloc[s_ix, f_ix]
+            else:
+                Xs = Xp[s_ix, f_ix]
+            if isinstance(Xp, pd.Series):
+                ys = y.iloc[s_ix]
+            else:
+                ys = y.iloc[s_ix]
             self.fit_learners.append(clone(self.base_learner).fit(Xs, ys))
             self.features_ix.append(f_ix)
             
@@ -426,7 +432,10 @@ class BaggedRegressor(BaseEstimator, RegressorMixin):
         # Compute predictions for each base learner
         preds = pd.DataFrame(index=X.index)
         for i, learner in enumerate(self.fit_learners):
-            Xs = Xp.iloc[:, self.features_ix[i]]
+            if isinstance(Xp, pd.DataFrame):
+                Xs = Xp.iloc[:, self.features_ix[i]]
+            else:
+                Xs = Xp[:, self.features_ix[i]]
             preds[str(i)] = learner.predict(Xs)
         
         # Return the average predictions
