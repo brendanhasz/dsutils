@@ -1062,8 +1062,9 @@ class MultiTargetEncoderLOO(BaseEstimator, TransformerMixin):
             for i, tlist in enumerate(X[col].tolist()):
                 if isinstance(tlist, str) and len(tlist)>0:
                     for tval in tlist.split(self.sep):
-                        SC = self.sum_count[col][tval]
-                        if tval in self.sum_count[col] and (SC[1]>1 or lm==0):
+                        if (tval in self.sum_count[col] 
+                            and (self.sum_count[col][tval][1]>1 or lm==0)):
+                            SC = self.sum_count[col][tval]
                             vals[i] += SC[0]-(0 if y is None else lm*y.iloc[i])
                             counts[i] += SC[1]-lm
             Xo[col] = (Cm+vals)/(C+counts)
