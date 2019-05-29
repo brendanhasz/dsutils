@@ -1024,12 +1024,15 @@ class MultiTargetEncoderLOO(BaseEstimator, TransformerMixin):
         self.sum_count = dict()
         for col in self.cols:
             self.sum_count[col] = dict()
-            cats = [e for e in X[col].tolist() if isinstance(e, str)]
-            cats = set([i for o in cats for i in o.split(self.sep)])
-            cats = set([e for e in cats if len(e)>0])
-            for cat in cats:
-                ix = self._get_matches(X[col], cat)
-                self.sum_count[col][cat] = (y[ix].sum(), ix.sum())
+            for i, tlist in enumerate(X[col].tolist()):
+                if isinstance(tlist, str):
+                    for val in tlist.split(self.sep):
+                        if len(val)>0:
+                            if val in self.sum_count[col]:
+                                self.sum_count[col][val][0] += y.iloc[i]
+                                self.sum_count[col][val][1] += 1
+                            else:
+                                self.sum_count[col][val] = [y.iloc[i], 1]
 
         # Return the fit object
         return self
@@ -1066,12 +1069,14 @@ class MultiTargetEncoderLOO(BaseEstimator, TransformerMixin):
         for col in self.sum_count:
             vals = np.full(X.shape[0], 0.0)
             counts = np.full(X.shape[0], 0.0)
-            for cat, sum_count in self.sum_count[col].items():
-                if (sum_count[1]-lm) > 0:
-                    ix = self._get_matches(X[col], cat)
-                    val = (Cm+sum_count[0]-lm*y[ix]) / (C+sum_count[1]-lm)
-                    vals[ix] += val
-                    counts[ix] += 1
+            for i, tlist in enumerate(X[col].tolist()):
+                if isinstance(tlist, str) and len(tlist)>0:
+                    for tval in tlist.split(self.sep):
+                        SC = self.sum_count[col][tval]
+                        if tval in self.sum_count[col] and (SC[1]>1 or lm==0):
+                            val = (Cm+SC[0]-lm*y[i]) / (C+SC[1]-lm)
+                            vals[i] += val
+                            counts[i] += 1
             Xo[col] = vals/counts
 
         # Return encoded DataFrame
