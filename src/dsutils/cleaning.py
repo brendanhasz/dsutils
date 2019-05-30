@@ -5,11 +5,12 @@
 
 """
 
+from hashlib import sha256
 
 import numpy as np
 import pandas as pd
-from hashlib import sha256
 
+from sklearn.base import BaseEstimator, TransformerMixin
 
 
 def remove_duplicate_cols(df):
@@ -158,3 +159,54 @@ def categorical_to_int(df, cols=None):
 
     # Return the maps used
     return maps
+
+
+
+class DeleteCols(BaseEstimator, TransformerMixin):
+    """Delete columns from a dataframe.
+
+    This is an sklearn-compatible transformer which deletes columns from a
+    dataframe.
+
+    Parameters
+    ----------
+    cols : int or str or list of either
+        Columns to delete
+    """
+
+    def __init__(self, cols):
+
+        # Check types
+        if not isinstance(cols, list):
+            cols = [cols]
+        for col in cols:
+            if not isinstance(col, (str, int)):
+                raise TypeError('cols must be list of str or int')
+
+        # Store columns
+        self.cols = cols
+
+
+    def fit(self, X, y):
+        return self
+
+        
+    def transform(self, X, y=None):
+        Xo = X.copy()
+        for col in self.cols:
+            if isinstance(X, pd.DataFrame):
+                if isinstance(col, str):
+                    Xo.drop(col, axis=1, inplace=True)
+                else:
+                    Xo.drop(Xo.columns[i], axis=1, inplace=True)
+            else: #numpy array, hopefully
+                if isinstance(col, str):
+                    raise TypeError('X is an array, cannot index with str')
+                else:
+                    Xo = np.delete(Xo, col, 1)
+
+        return Xo
+            
+            
+    def fit_transform(self, X, y=None):
+        return self.fit(X, y).transform(X, y)

@@ -686,9 +686,9 @@ def test_MultiTargetEncoderLOO():
     assert np.isnan(dfo.loc[3, 'b'])
     assert np.isnan(dfo.loc[4, 'b'])
     assert np.isnan(dfo.loc[5, 'b'])
-    assert dfo.loc[0, 'c'] == (2+3.5)/2.0
+    assert dfo.loc[0, 'c'] == (2.0+3+4)/3.0
     assert dfo.loc[1, 'c'] == 2
-    assert dfo.loc[2, 'c'] == (2+2.5)/2.0
+    assert dfo.loc[2, 'c'] == (1.0+2+4)/3.0
     assert dfo.loc[3, 'c'] == 2
     assert np.isnan(dfo.loc[4, 'c'])
     assert np.isnan(dfo.loc[5, 'c'])
@@ -710,10 +710,6 @@ def test_MultiTargetEncoderLOO():
     assert np.isnan(dfo.loc[3, 'b'])
     assert np.isnan(dfo.loc[4, 'b'])
     assert np.isnan(dfo.loc[5, 'b'])
-    assert dfo.loc[0, 'c'] > dfo.loc[1, 'c']
-    assert dfo.loc[2, 'c'] > dfo.loc[3, 'c']
-    assert np.isnan(dfo.loc[4, 'c'])
-    assert np.isnan(dfo.loc[5, 'c'])
 
 
 
