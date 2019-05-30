@@ -1068,7 +1068,7 @@ class MultiTargetEncoderLOO(BaseEstimator, TransformerMixin):
                             vals[i] += SC[0]-(0 if y is None else lm*y.iloc[i])
                             counts[i] += SC[1]-lm
             Xo[col] = (Cm+vals)/(C+counts)
-            Xo[col][counts==0.0] = np.nan
+            Xo.loc[counts==0.0, col] = np.nan
 
         # Return encoded DataFrame
         return Xo

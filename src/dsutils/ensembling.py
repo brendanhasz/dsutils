@@ -393,11 +393,11 @@ class BaggedRegressor(BaseEstimator, RegressorMixin):
             if isinstance(Xp, pd.DataFrame):
                 Xs = Xp.iloc[s_ix, f_ix]
             else:
-                Xs = Xp[s_ix, f_ix]
+                Xs = Xp[s_ix, :][:, f_ix]
             if isinstance(Xp, pd.Series):
                 ys = y.iloc[s_ix]
             else:
-                ys = y.iloc[s_ix]
+                ys = y[s_ix]
             self.fit_learners.append(clone(self.base_learner).fit(Xs, ys))
             self.features_ix.append(f_ix)
             
