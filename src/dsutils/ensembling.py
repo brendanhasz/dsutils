@@ -10,12 +10,13 @@ import pandas as pd
 
 from sklearn.base import clone
 from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import BayesianRidge
 from sklearn.model_selection import cross_val_predict
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.model_selection import KFold
 from sklearn.exceptions import NotFittedError
 
-from dsutils.models import InterpolatingPredictor
+#from dsutils.models import InterpolatingPredictor
 
 
 class EnsembleRegressor(BaseEstimator, RegressorMixin):
@@ -141,19 +142,28 @@ class EnsembleRegressor(BaseEstimator, RegressorMixin):
 
 class StackedRegressor(BaseEstimator, RegressorMixin):
     
-    def __init__(self, base_learners, meta_learner=InterpolatingPredictor(),
+    def __init__(self, base_learners, meta_learner=BayesianRidge(),
                  n_splits=3, shuffle=True, preprocessing=None, n_jobs=-1):
         """Uses a meta-estimator to predict from base estimators predictions
 
         Parameters
         ----------
         base_learners : list of sklearn Estimators
-            List of base estimators to use.       
+            List of base estimators to use.     
+        meta_learner : sklearn Estimator
+            Meta estimator to use.
+        n_splits : int
+            Number of cross-validation splits
+        shuffle : bool
+            Whether to shuffle the data
         preprocessing : sklearn Estimator
             Preprocessing pipline to apply to the data before using models
             to predict.  This saves time for heavy preprocessing workloads
             because the preprocessing does not have to be repeated for each
             estimator.
+        n_jobs : int
+            Number of parallel jobs to run. Default is to use as many 
+            threads as there are processors.
         """
         
         # Check inputs
@@ -430,7 +440,10 @@ class BaggedRegressor(BaseEstimator, RegressorMixin):
             Xp = self.preprocessing.transform(X)
 
         # Compute predictions for each base learner
-        preds = pd.DataFrame(index=X.index)
+        if isinstance(X, pd.DataFrame):
+            preds = pd.DataFrame(index=X.index)
+        else:
+            preds = pd.DataFrame(index=np.arange(X.shape[0]))
         for i, learner in enumerate(self.fit_learners):
             if isinstance(Xp, pd.DataFrame):
                 Xs = Xp.iloc[:, self.features_ix[i]]
@@ -439,7 +452,10 @@ class BaggedRegressor(BaseEstimator, RegressorMixin):
             preds[str(i)] = learner.predict(Xs)
         
         # Return the average predictions
-        return preds.mean(axis=1)
+        if isinstance(X, pd.DataFrame):
+            return preds.mean(axis=1)
+        else:
+            return preds.mean(axis=1)
 
 
     def fit_predict(self, X, y):

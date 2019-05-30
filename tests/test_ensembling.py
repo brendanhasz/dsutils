@@ -131,6 +131,14 @@ def test_BaggedRegressor():
     # Predict y values
     y_pred = bagged_model.fit_predict(X, y)
 
+    # Test with numpy array as input
+    X = np.random.randn(N,D)
+    w = np.random.randn(D)
+    y = np.sum(X*w.T, axis=1)
+    model = LinearRegression()
+    bagged_model = BaggedRegressor(model)
+    y_pred = bagged_model.fit_predict(X, y)
+
 
 
 def test_BaggedRegressor_options():
