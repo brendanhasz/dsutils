@@ -394,7 +394,7 @@ class BaggedRegressor(BaseEstimator, RegressorMixin):
                 Xs = Xp.iloc[s_ix, f_ix]
             else:
                 Xs = Xp[s_ix, :][:, f_ix]
-            if isinstance(Xp, pd.Series):
+            if isinstance(y, pd.Series):
                 ys = y.iloc[s_ix]
             else:
                 ys = y[s_ix]
