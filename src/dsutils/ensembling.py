@@ -455,7 +455,7 @@ class BaggedRegressor(BaseEstimator, RegressorMixin):
         if isinstance(X, pd.DataFrame):
             return preds.mean(axis=1)
         else:
-            return preds.mean(axis=1)
+            return preds.mean(axis=1).values
 
 
     def fit_predict(self, X, y):

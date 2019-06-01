@@ -130,6 +130,7 @@ def test_BaggedRegressor():
 
     # Predict y values
     y_pred = bagged_model.fit_predict(X, y)
+    assert isinstance(y_pred, pd.Series)
 
     # Test with numpy array as input
     X = np.random.randn(N,D)
@@ -138,6 +139,7 @@ def test_BaggedRegressor():
     model = LinearRegression()
     bagged_model = BaggedRegressor(model)
     y_pred = bagged_model.fit_predict(X, y)
+    assert isinstance(y_pred, np.ndarray)
 
 
 
