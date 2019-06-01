@@ -4,14 +4,21 @@
 
 """
 
-
+import subprocess
 
 import numpy as np
 import pandas as pd
 
-from sklearn.base import BaseEstimator, RegressorMixin
+from sklearn.base import BaseEstimator
+from sklearn.base import RegressorMixin
+from sklearn.base import TransformerMixin
 
 import surprise
+
+from nltk import tokenize
+from bert_serving.client import BertClient
+from scipy.sparse import coo_matrix
+from sklearn.decomposition import PCA
 
 
 
@@ -182,3 +189,219 @@ class SurpriseRegressor(BaseEstimator, RegressorMixin):
             Predicted scores.
         """
         return self.fit(X, y).predict(X)
+
+
+
+class BertEncoder(BaseEstimator, TransformerMixin):
+    """Use a pre-trained BERT model to embed sentences and paragraphs.
+
+    Embeds columns of text data using a pre-trained BERT model.  Adds columns
+    corresponding to the embedding values (reduced in dimensionality using
+    PCA), and optionally removes the original columns containing the text.
+    Embeds paragraphs by taking the average embedding of each sentence in the
+    paragraph.
+
+    Parameters
+    ----------
+    cols : str or list of str
+        Column(s) to encode.
+    clean_text_fn : str
+        Function to use to clean the text data. 
+        Default is to simply replace commas with space, and 
+        convert to lowercase.
+    n_pc : int
+        Number of top principal components to keep.
+        Default = 5
+    delete_old : bool
+        Whether to delete the text columns whose values
+        were encoded.  Default = True
+    bert_model : str
+        What BERT model to use.
+        See https://bert-as-service.readthedocs.io/en/latest/section/get-start.html#download-a-pre-trained-bert-model
+        Default = uncased_L-12_H-768_A-12
+    bert_url : str
+        Url from which to fetch the BERT model.
+        See https://bert-as-service.readthedocs.io/en/latest/section/get-start.html#download-a-pre-trained-bert-model
+        Default = http://storage.googleapis.com/bert_models/2018_10_18/
+    """
+    
+    def __init__(self, 
+                 cols, 
+                 clean_text_fn=clean_text,
+                 n_pc=5,
+                 delete_old=True,
+                 bert_model='uncased_L-12_H-768_A-12',
+                 bert_url='http://storage.googleapis.com/bert_models/2018_10_18/',
+                 model_dir=None):
+
+        # Check types
+        if not isinstance(cols, (list, str)):
+            raise TypeError('cols must be a list or a string')
+        if isinstance(cols, list):
+            if not all(isinstance(c, str) for c in cols):
+                raise TypeError('each element of cols must be a string')
+        if not callable(clean_text_fn):
+            raise TypeError('clean_text_fn must be a callable')
+        if not isinstance(n_pc, int):
+            raise TypeError('n_pc must be an int')
+        if n_pc<1:
+            raise ValueError('n_pc must be 1 or greater')
+        if not isinstance(delete_old, bool):
+            raise TypeError('delete_old must be a bool')
+        if not isinstance(bert_model, str):
+            raise TypeError('bert_model must be a str')
+        if not isinstance(bert_url, str):
+            raise TypeError('bert_url must be a str')
+        if model_dir is not None and not isinstance(model_dir, str):
+            raise TypeError('model_dir must be a str or None')
+            
+        # Store parameters
+        if isinstance(cols, str):
+            self.cols = [cols]
+        else:
+            self.cols = cols
+        self.clean_text_fn = clean_text_fn
+        self.n_pc = n_pc
+        self.pca = dict()
+        self.delete_old = delete_old
+        
+        # Directory in which to store BERT model
+        if model_dir is None:
+            process = subprocess.Popen('pwd', stdout=subprocess.PIPE)
+            output, error = process.communicate()
+            model_dir = output[:-1].decode('utf-8')+'/'
+        else:
+            if model_dir[-1]!='/':
+                model_dir = model_dir+'/'
+        
+        # Download the BERT model
+        cmd = 'wget '+bert_url+bert_model+'.zip -P '+model_dir
+        subprocess.check_call(cmd.split())
+        
+        # Unzip the model
+        cmd = 'unzip '+model_dir+bert_model+'.zip'
+        subprocess.check_call(cmd.split())
+            
+        # Start the BERT server
+        cmd = 'bert-serving-start -model_dir '+model_dir+bert_model
+        process = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE) 
+            
+        # Start the BERT client
+        self.bc = BertClient()
+        
+        
+    def _bert_embed_paragraphs(self, paragraphs):
+        """Embed paragraphs by taking the average embedding of each sentence.
+        
+        Converts paragraphs (list of lists of strings), to a single list
+        of strings, and embeds each sentence with BERT.  Then, takes the
+        average sentence embedding for sentences in each paragraph.
+
+        Parameters
+        ----------
+        paragraphs : list of lists of str
+            The paragraphs.  Each element should correspond to a paragraph
+            and each paragraph should be a list of str, where each str is 
+            a sentence.
+
+        Returns
+        -------
+        embeddings : numpy ndarray of size (len(paragraphs), 768)
+            The paragraph embeddings
+        """
+
+        # Covert to single list
+        sentences = []
+        ids = []
+        for i in range(len(paragraphs)):
+            sentences += paragraphs[i]
+            ids += [i]*len(paragraphs[i])
+
+        # Embed the sentences
+        embeddings = self.bc.encode(sentences)
+
+        # Average by paragraph id
+        Np = len(paragraphs) #number of paragraphs
+        n_dims = embeddings.shape[1]
+        embeddings_out = np.full([Np, n_dims], np.nan)
+        ids = np.array(ids)
+        the_range = np.arange(len(ids))
+        for i in range(n_dims):
+            embeddings_out[:,i] = coo_matrix((embeddings[:,i], (ids, the_range))).mean(axis=1).ravel()
+        return embeddings_out
+
+        
+    def _bert_encode(self, series, name):
+        """Encode a single column of text data with BERT"""
+
+        # Clean the text
+        data = [self.clean_text_fn(e) for e in series.tolist()]
+        
+        # Convert paragraphs to lists of sentences
+        data = [tokenize.sent_tokenize(s) for s in data]
+        
+        # Embed the paragraphs
+        embeddings = self._bert_embed_paragraphs(data)
+        
+        # Compute PCA on training data
+        if name not in self.pca:
+            self.pca[name] = PCA(n_components=self.n_pc)
+            self.pca[name] = self.pca[name].fit(embeddings)
+        
+        # Apply PCA to reduce dimensionality
+        embeddings = self.pca[name].transform(embeddings)
+        
+        # Return the embeddings
+        return embeddings
+        
+
+    def fit(self, X, y):
+        """Nothing needs to be done here"""
+        return self
+
+    
+    def transform(self, X, y=None):
+        """Perform the BERT encoding.
+
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix with columns to encode
+
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
+        """
+        
+        # Create output dataframe
+        Xo = X.copy()
+
+        # Encode each column
+        for col in self.cols:
+            embeddings = self._bert_encode(X[col], col)
+            for iC in range(self.n_pc):
+                Xo[col+'_'+str(iC)] = embeddings[:, iC]
+            if self.delete_old:
+                del Xo[col]
+
+        # Return encoded DataFrame
+        return Xo
+      
+            
+    def fit_transform(self, X, y=None):
+        """Perform the BERT encoding.
+        
+        Parameters
+        ----------
+        X : pandas DataFrame of shape (n_samples, n_columns)
+            Independent variable matrix with columns to encode
+        y : pandas Series of shape (n_samples,)
+            Dependent variable values.
+
+        Returns
+        -------
+        pandas DataFrame
+            Input DataFrame with transformed columns
+        """
+        return self.fit(X, y).transform(X, y)
