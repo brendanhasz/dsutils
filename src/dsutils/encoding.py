@@ -1474,7 +1474,7 @@ class JsonEncoder(BaseEstimator, TransformerMixin):
                     fields[col][i] = (field, None, None)
                 elif isinstance(field, tuple):
                     if not (isinstance(field[0], str) and
-                            isinstance(field[1], str)):
+                            (isinstance(field[1], str) or field[1] is None)):
                         raise TypeError('fields must be (str,str,???) tuples')
                 else:
                     raise TypeError('fields must be dict with values ' 
