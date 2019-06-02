@@ -293,7 +293,7 @@ class BertEncoder(BaseEstimator, TransformerMixin):
         process = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE) 
             
         # Start the BERT client
-        self.bc = BertClient()
+        self.bc = BertClient(check_length=False)
         
         
     def _bert_embed_paragraphs(self, paragraphs):

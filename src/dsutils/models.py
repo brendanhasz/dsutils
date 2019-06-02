@@ -1,7 +1,6 @@
 """Models
 
 * :class:`.InterpolatingPredictor`
-* :class:`.SvdRegressor`
 
 """
 

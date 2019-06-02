@@ -210,3 +210,45 @@ class DeleteCols(BaseEstimator, TransformerMixin):
             
     def fit_transform(self, X, y=None):
         return self.fit(X, y).transform(X, y)
+
+
+
+class KeepOnlyCols(BaseEstimator, TransformerMixin):
+    """Delete all columns except specified ones from a dataframe.
+
+    This is an sklearn-compatible transformer which deletes all columns
+    except specified ones from a dataframe.
+
+    Parameters
+    ----------
+    cols : str or list of str
+        Columns to delete
+    """
+
+    def __init__(self, cols):
+
+        # Check types
+        if not isinstance(cols, list):
+            cols = [cols]
+        for col in cols:
+            if not isinstance(col, str):
+                raise TypeError('cols must be list of str')
+
+        # Store columns
+        self.cols = cols
+
+
+    def fit(self, X, y):
+        return self
+
+        
+    def transform(self, X, y=None):
+        Xo = X.copy()
+        for col in X:
+            if col not in self.cols:
+                Xo.drop(col, axis=1, inplace=True)
+        return Xo
+            
+            
+    def fit_transform(self, X, y=None):
+        return self.fit(X, y).transform(X, y)
