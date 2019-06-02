@@ -337,7 +337,7 @@ class BertEncoder(BaseEstimator, TransformerMixin):
         return embeddings_out
 
         
-    def _bert_encode(self, series, name):
+    def _bert_encode(self, series, name, training):
         """Encode a single column of text data with BERT"""
 
         # Clean the text
@@ -350,7 +350,7 @@ class BertEncoder(BaseEstimator, TransformerMixin):
         embeddings = self._bert_embed_paragraphs(data)
         
         # Compute PCA on training data
-        if name not in self.pca:
+        if training:
             self.pca[name] = PCA(n_components=self.n_pc)
             self.pca[name] = self.pca[name].fit(embeddings)
         
@@ -385,7 +385,7 @@ class BertEncoder(BaseEstimator, TransformerMixin):
 
         # Encode each column
         for col in self.cols:
-            embeddings = self._bert_encode(X[col], col)
+            embeddings = self._bert_encode(X[col], col, y is not None)
             for iC in range(self.n_pc):
                 Xo[col+'_'+str(iC)] = embeddings[:, iC]
             if self.delete_old:
