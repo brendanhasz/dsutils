@@ -225,9 +225,15 @@ class BertEncoder(BaseEstimator, TransformerMixin):
         Default = http://storage.googleapis.com/bert_models/2018_10_18/
     """
     
+    def _clean_text(text):
+        if isinstance(text, float):
+            return ' '
+        return text.replace(',', ' ').lower()
+
+
     def __init__(self, 
                  cols, 
-                 clean_text_fn=clean_text,
+                 clean_text_fn=_clean_text,
                  n_pc=5,
                  delete_old=True,
                  bert_model='uncased_L-12_H-768_A-12',
