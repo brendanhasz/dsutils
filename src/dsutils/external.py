@@ -4,6 +4,7 @@
 
 """
 
+import os
 import subprocess
 
 import numpy as np
@@ -273,7 +274,7 @@ class BertEncoder(BaseEstimator, TransformerMixin):
         self.bert_model = bert_model
         self.bert_url = bert_url
         self.model_dir = model_dir
-        
+
         # Directory in which to store BERT model
         if model_dir is None:
             process = subprocess.Popen('pwd', stdout=subprocess.PIPE)
@@ -283,17 +284,20 @@ class BertEncoder(BaseEstimator, TransformerMixin):
             if model_dir[-1]!='/':
                 model_dir = model_dir+'/'
         
-        # Download the BERT model
-        cmd = 'wget '+bert_url+bert_model+'.zip -P '+model_dir
-        subprocess.check_call(cmd.split())
-        
-        # Unzip the model
-        cmd = 'unzip '+model_dir+bert_model+'.zip'
-        subprocess.check_call(cmd.split())
+        # Get the BERT model and start the server if not already downloaded
+        if not os.path.isfile(model_dir+bert_model+'.zip'):
+
+            # Download the BERT model
+            cmd = 'wget '+bert_url+bert_model+'.zip -P '+model_dir
+            subprocess.check_call(cmd.split())
             
-        # Start the BERT server
-        cmd = 'bert-serving-start -model_dir '+model_dir+bert_model
-        process = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE) 
+            # Unzip the model
+            cmd = 'unzip '+model_dir+bert_model+'.zip'
+            subprocess.check_call(cmd.split())
+            
+            # Start the BERT server
+            cmd = 'bert-serving-start -model_dir '+model_dir+bert_model
+            process = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE) 
             
         # Start the BERT client
         self.bc = BertClient(check_length=False)
