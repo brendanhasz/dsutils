@@ -270,6 +270,9 @@ class BertEncoder(BaseEstimator, TransformerMixin):
         self.n_pc = n_pc
         self.pca = dict()
         self.delete_old = delete_old
+        self.bert_model = bert_model
+        self.bert_url = bert_url
+        self.model_dir = model_dir
         
         # Directory in which to store BERT model
         if model_dir is None:
