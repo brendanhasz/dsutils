@@ -340,8 +340,8 @@ class BertEncoder(BaseEstimator, TransformerMixin):
         ids = np.array(ids)
         the_range = np.arange(len(ids))
         for i in range(n_dims):
-            temp = coo_matrix((embeddings[:,i], (ids, the_range))).mean(axis=1).ravel()
-            embeddings_out[:len(temp),i] = temp
+            temp = coo_matrix((embeddings[:,i], (ids, the_range))).mean(axis=1)
+            embeddings_out[:temp.shape[0], i] = temp
         return embeddings_out
 
         
