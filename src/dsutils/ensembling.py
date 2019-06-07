@@ -39,8 +39,9 @@ class EnsembleRegressor(BaseEstimator, RegressorMixin):
         if not isinstance(base_learners, list):
             raise TypeError('base_learners must be a list of estimators')
         if (preprocessing is not None and
-                not isinstance(preprocessing, BaseEstimator)):
-            raise TypeError('preprocessing must be an sklearn estimator')
+                not (hasattr(preprocessing, 'fit') and 
+                     hasattr(preprocessing, 'transform'))):
+            raise TypeError('preprocessing must be an sklearn transformer')
 
         # Store learners as dict
         self.base_learners = dict()
@@ -50,7 +51,7 @@ class EnsembleRegressor(BaseEstimator, RegressorMixin):
                     isinstance(learner[0], str) and 
                     isinstance(learner[1], BaseEstimator)):
                 self.base_learners[learner[0]] = learner[1]
-            elif isinstance(learner, BaseEstimator):
+            elif hasattr(learner, 'fit') and hasattr(learner, 'predict'):
                 self.base_learners[str(i)] = learner
             else:
                 raise TypeError('each element of base_learners must be an '
@@ -178,8 +179,9 @@ class StackedRegressor(BaseEstimator, RegressorMixin):
         if not isinstance(shuffle, bool):
             raise TypeError('shuffle must be True or False')
         if (preprocessing is not None and
-                not isinstance(preprocessing, BaseEstimator)):
-            raise TypeError('preprocessing must be an sklearn estimator')
+                not (hasattr(preprocessing, 'fit') and 
+                     hasattr(preprocessing, 'transform'))):
+            raise TypeError('preprocessing must be an sklearn transformer')
         if not isinstance(n_jobs, int):
             raise TypeError('n_jobs must be an int')
         if n_jobs is not None and (n_jobs < -1 or n_jobs == 0):
@@ -193,7 +195,7 @@ class StackedRegressor(BaseEstimator, RegressorMixin):
                     isinstance(learner[0], str) and 
                     isinstance(learner[1], BaseEstimator)):
                 self.base_learners[learner[0]] = learner[1]
-            elif isinstance(learner, BaseEstimator):
+            elif hasattr(learner, 'fit') and hasattr(learner, 'predict'):
                 self.base_learners[str(i)] = learner
             else:
                 raise TypeError('each element of base_learners must be an '
